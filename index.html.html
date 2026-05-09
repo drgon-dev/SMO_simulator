@@ -1,0 +1,2009 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Симулятор узлов СМО</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js">
+    </script>
+    <style>
+        :root {
+            --bg: #1e1e2e;
+            --panel: #252536;
+            --border: #3a3a50;
+            --text: #e0e0e0;
+            --text2: #b0b0c0;
+            --accent: #6c9cf5;
+            --accent2: #4ec9b0;
+            --danger: #e05570;
+            --warn: #e8b456;
+            --source: #4ec9b0;
+            --queue: #6c9cf5;
+            --sink: #e05570;
+            --btn-bg: #353550;
+            --btn-hover: #454568;
+            --input-bg: #2a2a3c;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', 'Inter', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        #toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--panel);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            flex-wrap: wrap;
+            z-index: 10;
+        }
+        #toolbar button {
+            padding: 7px 14px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--btn-bg);
+            color: var(--text);
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        #toolbar button:hover {
+            background: var(--btn-hover);
+            border-color: #555;
+        }
+        #toolbar button.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+            font-weight: 600;
+        }
+        #toolbar .sep {
+            width: 1px;
+            height: 24px;
+            background: var(--border);
+            margin: 0 4px;
+        }
+        #toolbar .speed-group {
+            display: flex;
+            gap: 2px;
+        }
+        #toolbar .speed-group button {
+            border-radius: 3px;
+            padding: 6px 10px;
+            font-size: 12px;
+        }
+        #toolbar .speed-group button.active-speed {
+            background: var(--accent2);
+            border-color: var(--accent2);
+            color: #000;
+            font-weight: 700;
+        }
+        #main-area {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+        }
+        #canvas-wrap {
+            flex: 1;
+            position: relative;
+            background: #1a1a28;
+            cursor: grab;
+            min-width: 300px;
+        }
+        #canvas-wrap:active {
+            cursor: grabbing;
+        }
+        #canvas-wrap.connecting {
+            cursor: crosshair;
+        }
+        canvas#graphCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        #right-panel {
+            width: 320px;
+            background: var(--panel);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            flex-shrink: 0;
+            gap: 0;
+        }
+        #right-panel h3 {
+            padding: 12px 14px 8px;
+            font-size: 14px;
+            color: var(--text2);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border);
+            margin: 0;
+            flex-shrink: 0;
+        }
+        #props-content {
+            padding: 10px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        #props-content label {
+            font-size: 12px;
+            color: var(--text2);
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        #props-content input,
+        #props-content select {
+            padding: 7px 10px;
+            border-radius: 5px;
+            border: 1px solid var(--border);
+            background: var(--input-bg);
+            color: var(--text);
+            font-size: 13px;
+            width: 100%;
+        }
+        #props-content input:focus,
+        #props-content select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        #props-content .prop-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        #props-content .prop-row label {
+            flex: 1;
+        }
+        #no-select {
+            color: var(--text2);
+            font-style: italic;
+            padding: 20px 14px;
+            text-align: center;
+            font-size: 13px;
+        }
+        #charts-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            gap: 8px;
+            padding: 8px 10px;
+            min-height: 200px;
+            border-top: 1px solid var(--border);
+        }
+        #charts-panel .chart-box {
+            background: #1a1a28;
+            border-radius: 6px;
+            padding: 6px;
+            flex-shrink: 0;
+            height: 180px;
+            position: relative;
+        }
+        #charts-panel .chart-box canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+        #charts-panel .chart-title {
+            font-size: 10px;
+            color: var(--text2);
+            text-align: center;
+            margin-bottom: 2px;
+            letter-spacing: 0.3px;
+        }
+        #status-bar {
+            padding: 4px 14px;
+            background: #1a1a28;
+            border-top: 1px solid var(--border);
+            font-size: 11px;
+            color: var(--text2);
+            display: flex;
+            gap: 16px;
+            flex-shrink: 0;
+            align-items: center;
+        }
+        #status-bar span {
+            white-space: nowrap;
+        }
+        .conn-prob {
+            font-size: 11px;
+            color: var(--warn);
+            text-align: center;
+        }
+        @media (max-width: 900px) {
+            #right-panel {
+                width: 260px;
+            }
+            #charts-panel .chart-box {
+                height: 140px;
+            }
+        }
+        @media (max-width: 600px) {
+            #main-area {
+                flex-direction: column;
+            }
+            #right-panel {
+                width: 100%;
+                max-height: 40vh;
+                flex-shrink: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toolbar">
+        <button id="btn-source" title="Добавить источник">📤 Источник</button>
+        <button id="btn-queue-fifo" title="Добавить очередь FIFO">📋 FIFO</button>
+        <button id="btn-queue-lifo" title="Добавить очередь LIFO">📋 LIFO</button>
+        <button id="btn-queue-sf" title="Добавить очередь SF">📋 SF</button>
+        <button id="btn-sink" title="Добавить сток">📥 Сток</button>
+        <span class="sep"></span>
+        <button id="btn-start" title="Запуск симуляции">▶ Старт</button>
+        <button id="btn-pause" title="Пауза">⏸ Пауза</button>
+        <button id="btn-reset" title="Сброс симуляции">↺ Сброс</button>
+        <span class="sep"></span>
+        <span style="font-size:12px;color:var(--text2)">Скорость:</span>
+        <div class="speed-group" id="speed-group">
+            <button data-speed="1" class="active-speed">1×</button>
+            <button data-speed="10">10×</button>
+            <button data-speed="100">100×</button>
+            <button data-speed="0">Макс</button>
+        </div>
+        <span class="sep"></span>
+        <button id="btn-save" title="Сохранить топологию">💾 Сохранить</button>
+        <button id="btn-load" title="Загрузить топологию">📂 Загрузить</button>
+        <input type="file" id="load-file" accept=".json" style="display:none">
+        <span style="font-size:11px;color:var(--text2);margin-left:auto;">Del — удалить</span>
+    </div>
+
+    <div id="main-area">
+        <div id="canvas-wrap">
+            <canvas id="graphCanvas"></canvas>
+        </div>
+        <div id="right-panel">
+            <h3>🔍 Свойства</h3>
+            <div id="props-content">
+                <div id="no-select">Выберите узел или соединение</div>
+            </div>
+            <div id="charts-panel">
+                <div class="chart-title">Графики для выбранной очереди</div>
+                <div class="chart-box"><canvas id="chart1"></canvas></div>
+                <div class="chart-box"><canvas id="chart2"></canvas></div>
+                <div class="chart-box"><canvas id="chart3"></canvas></div>
+                <div class="chart-box"><canvas id="chart4"></canvas></div>
+                <div class="chart-box"><canvas id="chart5"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="status-bar">
+        <span>🕐 Модельное время: <b id="stime">0.000</b></span>
+        <span>📊 Событий обработано: <b id="sevents">0</b></span>
+        <span>📋 Заявок в системе: <b id="sjobs">0</b></span>
+        <span id="sstate" style="color:var(--warn)">⏸ Остановлено</span>
+    </div>
+
+    <script>
+        // ==================== PRNG ====================
+        class PRNG {
+            constructor(seed = 42) {
+                this.m = 2147483647; // 2^31 - 1
+                this.a = 48271;
+                this.c = 0;
+                this.state = Math.max(0, Math.floor(seed)) % this.m;
+                if (this.state === 0) this.state = 1;
+            }
+            next() {
+                this.state = (this.a * this.state + this.c) % this.m;
+                return this.state / this.m;
+            }
+            setSeed(seed) {
+                this.state = Math.max(0, Math.floor(seed)) % this.m;
+                if (this.state === 0) this.state = 1;
+            }
+            getSeed() { return this.state; }
+            exp(lambda) {
+                const u = this.next();
+                if (u <= 0) return 1e-9;
+                return -Math.log(u) / lambda;
+            }
+            uniform(a, b) {
+                return a + this.next() * (b - a);
+            }
+        }
+
+        // ==================== JOB ====================
+        class Job {
+            constructor(id, sourceId, creationTime) {
+                this.id = id;
+                this.sourceId = sourceId;
+                this.creationTime = creationTime;
+                this.serviceTime = null;
+                this.arrivalTime = null;
+                this.serviceStartTime = null;
+                this.serviceEndTime = null;
+            }
+        }
+
+        // ==================== EVENT ====================
+        class SimEvent {
+            constructor(time, type, data, priority = 10) {
+                this.time = time;
+                this.type = type;
+                this.data = data;
+                this.priority = priority;
+            }
+        }
+
+        // Min-heap for events
+        class EventHeap {
+            constructor() { this.heap = []; }
+            size() { return this.heap.length; }
+            push(event) {
+                this.heap.push(event);
+                this._bubbleUp(this.heap.length - 1);
+            }
+            pop() {
+                if (this.heap.length === 0) return null;
+                const top = this.heap[0];
+                const last = this.heap.pop();
+                if (this.heap.length > 0) {
+                    this.heap[0] = last;
+                    this._sinkDown(0);
+                }
+                return top;
+            }
+            peek() { return this.heap.length > 0 ? this.heap[0] : null; }
+            clear() { this.heap = []; }
+            _compare(a, b) {
+                if (a.time !== b.time) return a.time - b.time;
+                return a.priority - b.priority;
+            }
+            _bubbleUp(idx) {
+                while (idx > 0) {
+                    const parent = Math.floor((idx - 1) / 2);
+                    if (this._compare(this.heap[idx], this.heap[parent]) < 0) {
+                        [this.heap[idx], this.heap[parent]] = [this.heap[parent], this.heap[idx]];
+                        idx = parent;
+                    } else break;
+                }
+            }
+            _sinkDown(idx) {
+                const n = this.heap.length;
+                while (true) {
+                    let smallest = idx;
+                    const left = 2 * idx + 1;
+                    const right = 2 * idx + 2;
+                    if (left < n && this._compare(this.heap[left], this.heap[smallest]) < 0) smallest = left;
+                    if (right < n && this._compare(this.heap[right], this.heap[smallest]) < 0) smallest = right;
+                    if (smallest !== idx) {
+                        [this.heap[idx], this.heap[smallest]] = [this.heap[smallest], this.heap[idx]];
+                        idx = smallest;
+                    } else break;
+                }
+            }
+        }
+
+        // ==================== STATISTICS COLLECTOR ====================
+        class StatisticsCollector {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.N = 0; // всего поступивших
+                this.Nobs = 0; // обслуженных
+                this.Notk = 0; // отказов
+                this.totalWaitTime = 0;
+                this.totalServiceTime = 0;
+                this.channelStateTimes = {}; // {k: accumulated_time}
+                this.queueLengthTimes = {}; // {m: accumulated_time}
+                this.lastChannelState = 0;
+                this.lastChannelChangeTime = 0;
+                this.lastQueueLength = 0;
+                this.lastQueueChangeTime = 0;
+                this.history = []; // snapshots for charts
+            }
+            initChannelTracking(currentTime, numBusy) {
+                this.lastChannelState = numBusy;
+                this.lastChannelChangeTime = currentTime;
+                this.channelStateTimes = {};
+                this._accChannel(numBusy, 0);
+            }
+            initQueueTracking(currentTime, length) {
+                this.lastQueueLength = length;
+                this.lastQueueChangeTime = currentTime;
+                this.queueLengthTimes = {};
+                this._accQueue(length, 0);
+            }
+            _accChannel(k, dt) {
+                if (!this.channelStateTimes[k]) this.channelStateTimes[k] = 0;
+                this.channelStateTimes[k] += dt;
+            }
+            _accQueue(m, dt) {
+                if (!this.queueLengthTimes[m]) this.queueLengthTimes[m] = 0;
+                this.queueLengthTimes[m] += dt;
+            }
+            recordArrival(currentTime) {
+                this.N++;
+                this._updateQueueLength(currentTime, this.lastQueueLength + 1);
+            }
+            recordRejection(currentTime) {
+                this.Notk++;
+                this._updateQueueLength(currentTime, this.lastQueueLength);
+                this.N--;
+            }
+            recordServiceStart(currentTime, job, queueLength, numBusyBefore) {
+                const newBusy = numBusyBefore + 1;
+                this._updateChannelState(currentTime, newBusy);
+                this._updateQueueLength(currentTime, queueLength);
+                job.serviceStartTime = currentTime;
+                job.arrivalTime = job.arrivalTime || currentTime;
+                this.totalWaitTime += (currentTime - job.arrivalTime);
+            }
+            recordServiceComplete(currentTime, job, queueLength, numBusyBefore) {
+                const newBusy = numBusyBefore - 1;
+                this._updateChannelState(currentTime, newBusy);
+                this._updateQueueLength(currentTime, queueLength);
+                job.serviceEndTime = currentTime;
+                this.totalServiceTime += (currentTime - (job.serviceStartTime || currentTime));
+                this.Nobs++;
+            }
+            _updateChannelState(currentTime, newBusy) {
+                const dt = currentTime - this.lastChannelChangeTime;
+                if (dt > 0) this._accChannel(this.lastChannelState, dt);
+                this.lastChannelState = newBusy;
+                this.lastChannelChangeTime = currentTime;
+            }
+            _updateQueueLength(currentTime, newLength) {
+                const dt = currentTime - this.lastQueueChangeTime;
+                if (dt > 0) this._accQueue(this.lastQueueLength, dt);
+                this.lastQueueLength = newLength;
+                this.lastQueueChangeTime = currentTime;
+            }
+            finalizeChannel(currentTime) {
+                const dt = currentTime - this.lastChannelChangeTime;
+                if (dt > 0) this._accChannel(this.lastChannelState, dt);
+                this.lastChannelChangeTime = currentTime;
+            }
+            finalizeQueue(currentTime) {
+                const dt = currentTime - this.lastQueueChangeTime;
+                if (dt > 0) this._accQueue(this.lastQueueLength, dt);
+                this.lastQueueChangeTime = currentTime;
+            }
+            getStats(currentTime) {
+                this.finalizeChannel(currentTime);
+                this.finalizeQueue(currentTime);
+                const Tn = Math.max(currentTime, 1e-9);
+                const Pobs = this.N > 0 ? this.Nobs / this.N : 0;
+                const A = this.Nobs / Tn;
+                const Potk = this.N > 0 ? this.Notk / this.N : 0;
+                const TavgWait = this.Nobs > 0 ? this.totalWaitTime / this.Nobs : 0;
+                const TavgService = this.Nobs > 0 ? this.totalServiceTime / this.Nobs : 0;
+                const TavgSystem = TavgWait + TavgService;
+                let Nsk = 0;
+                let sumPk = 0;
+                const Pk = {};
+                for (const [k, t] of Object.entries(this.channelStateTimes)) {
+                    const pk = t / Tn;
+                    Pk[parseInt(k)] = pk;
+                    Nsk += parseInt(k) * pk;
+                    sumPk += pk;
+                }
+                let Nsz = 0;
+                const Pmz = {};
+                for (const [m, t] of Object.entries(this.queueLengthTimes)) {
+                    const pm = t / Tn;
+                    Pmz[parseInt(m)] = pm;
+                    Nsz += parseInt(m) * pm;
+                }
+                const Nsist = Nsz + Nsk;
+                const NsistLittle = A * TavgSystem;
+                return {
+                    Tn,
+                    N: this.N,
+                    Nobs: this.Nobs,
+                    Notk: this.Notk,
+                    Pobs,
+                    A,
+                    Potk,
+                    Pk,
+                    Nsk,
+                    Pmz,
+                    Nsz,
+                    TavgWait,
+                    TavgService,
+                    TavgSystem,
+                    Nsist,
+                    NsistLittle,
+                    sumPk,
+                };
+            }
+            snapshot(currentTime) {
+                const s = this.getStats(currentTime);
+                this.history.push({ time: currentTime, ...s });
+                if (this.history.length > 5000) this.history.shift();
+                return s;
+            }
+        }
+
+        // ==================== NODE CLASSES ====================
+        class BaseNode {
+            constructor(id, type, x, y) {
+                this.id = id;
+                this.type = type;
+                this.x = x;
+                this.y = y;
+                this.name = type;
+                this.inputPorts = [];
+                this.outputPorts = [];
+                this.connectionsOut = [];
+            }
+            getPortPos(portType) {
+                if (portType === 'out') return { x: this.x + 55, y: this.y };
+                return { x: this.x - 55, y: this.y };
+            }
+            toJSON() {
+                return {
+                    id: this.id,
+                    type: this.type,
+                    x: this.x,
+                    y: this.y,
+                    name: this.name,
+                };
+            }
+        }
+
+        class SourceNode extends BaseNode {
+            constructor(id, x, y) {
+                super(id, 'source', x, y);
+                this.name = 'Источник';
+                this.distribution = 'exponential';
+                this.lambda = 1;
+                this.constInterval = 1;
+                this.uniformMin = 0.5;
+                this.uniformMax = 1.5;
+                this.seed = 42;
+                this.maxJobs = Infinity;
+                this.prng = new PRNG(this.seed);
+                this.generatedCount = 0;
+                this.nextGenerateTime = 0;
+                this.outputPorts = ['out'];
+            }
+            getNextInterval() {
+                switch (this.distribution) {
+                    case 'exponential':
+                        return this.prng.exp(this.lambda);
+                    case 'constant':
+                        return this.constInterval;
+                    case 'uniform':
+                        return this.prng.uniform(this.uniformMin, this.uniformMax);
+                    default:
+                        return 1;
+                }
+            }
+            scheduleNext(currentTime, eventHeap, jobIdCounter) {
+                if (this.generatedCount >= this.maxJobs) return null;
+                const interval = this.getNextInterval();
+                const eventTime = Math.max(currentTime, this.nextGenerateTime) + interval;
+                this.nextGenerateTime = eventTime;
+                const job = new Job(jobIdCounter.count++, this.id, eventTime);
+                this.generatedCount++;
+                return new SimEvent(eventTime, 'GENERATE', { source: this, job }, 1);
+            }
+            toJSON() {
+                return {
+                    ...super.toJSON(),
+                    distribution: this.distribution,
+                    lambda: this.lambda,
+                    constInterval: this.constInterval,
+                    uniformMin: this.uniformMin,
+                    uniformMax: this.uniformMax,
+                    seed: this.seed,
+                    maxJobs: this.maxJobs === Infinity ? null : this.maxJobs,
+                };
+            }
+            static fromJSON(data) {
+                const n = new SourceNode(data.id, data.x, data.y);
+                n.name = data.name || 'Источник';
+                n.distribution = data.distribution || 'exponential';
+                n.lambda = data.lambda || 1;
+                n.constInterval = data.constInterval || 1;
+                n.uniformMin = data.uniformMin || 0.5;
+                n.uniformMax = data.uniformMax || 1.5;
+                n.seed = data.seed ?? 42;
+                n.maxJobs = data.maxJobs == null ? Infinity : data.maxJobs;
+                n.prng = new PRNG(n.seed);
+                return n;
+            }
+        }
+
+        class QueueNode extends BaseNode {
+            constructor(id, x, y, discipline = 'FIFO') {
+                super(id, 'queue', x, y);
+                this.name = 'Очередь ' + discipline;
+                this.discipline = discipline;
+                this.numChannels = 1;
+                this.serviceDistribution = 'constant';
+                this.serviceConst = 1;
+                this.serviceMu = 1;
+                this.maxQueueLength = 0;
+                this.seed = 100 + id;
+                this.prng = new PRNG(this.seed);
+                this.waitingQueue = [];
+                this.busyChannels = 0;
+                this.stats = new StatisticsCollector();
+                this.inputPorts = ['in'];
+                this.outputPorts = ['out'];
+                this.lastStateTime = 0;
+            }
+            generateServiceTime() {
+                switch (this.serviceDistribution) {
+                    case 'constant':
+                        return this.serviceConst;
+                    case 'exponential':
+                        return this.prng.exp(this.serviceMu);
+                    default:
+                        return 1;
+                }
+            }
+            pickNextJob() {
+                if (this.waitingQueue.length === 0) return null;
+                switch (this.discipline) {
+                    case 'FIFO':
+                        return this.waitingQueue.shift();
+                    case 'LIFO':
+                        return this.waitingQueue.pop();
+                    case 'SF': {
+                        let minIdx = 0;
+                        let minTime = this.waitingQueue[0].serviceTime ?? Infinity;
+                        for (let i = 1; i < this.waitingQueue.length; i++) {
+                            const st = this.waitingQueue[i].serviceTime ?? Infinity;
+                            if (st < minTime) { minTime = st;
+                                minIdx = i; }
+                        }
+                        return this.waitingQueue.splice(minIdx, 1)[0];
+                    }
+                    default:
+                        return this.waitingQueue.shift();
+                }
+            }
+            toJSON() {
+                return {
+                    ...super.toJSON(),
+                    discipline: this.discipline,
+                    numChannels: this.numChannels,
+                    serviceDistribution: this.serviceDistribution,
+                    serviceConst: this.serviceConst,
+                    serviceMu: this.serviceMu,
+                    maxQueueLength: this.maxQueueLength,
+                    seed: this.seed,
+                };
+            }
+            static fromJSON(data) {
+                const n = new QueueNode(data.id, data.x, data.y, data.discipline || 'FIFO');
+                n.name = data.name || ('Очередь ' + (data.discipline || 'FIFO'));
+                n.numChannels = data.numChannels || 1;
+                n.serviceDistribution = data.serviceDistribution || 'constant';
+                n.serviceConst = data.serviceConst || 1;
+                n.serviceMu = data.serviceMu || 1;
+                n.maxQueueLength = data.maxQueueLength || 0;
+                n.seed = data.seed ?? (100 + data.id);
+                n.prng = new PRNG(n.seed);
+                return n;
+            }
+        }
+
+        class SinkNode extends BaseNode {
+            constructor(id, x, y) {
+                super(id, 'sink', x, y);
+                this.name = 'Сток';
+                this.receivedCount = 0;
+                this.inputPorts = ['in'];
+                this.outputPorts = [];
+            }
+            toJSON() {
+                return { ...super.toJSON(), receivedCount: this.receivedCount };
+            }
+            static fromJSON(data) {
+                const n = new SinkNode(data.id, data.x, data.y);
+                n.name = data.name || 'Сток';
+                n.receivedCount = data.receivedCount || 0;
+                return n;
+            }
+        }
+
+        // ==================== CONNECTION ====================
+        class Connection {
+            constructor(id, fromNode, toNode, weight = 1) {
+                this.id = id;
+                this.fromNode = fromNode;
+                this.toNode = toNode;
+                this.weight = weight;
+                this.fromPort = 'out';
+                this.toPort = 'in';
+            }
+            toJSON() {
+                return {
+                    id: this.id,
+                    fromNodeId: this.fromNode.id,
+                    toNodeId: this.toNode.id,
+                    weight: this.weight,
+                };
+            }
+        }
+
+        // ==================== SIMULATION ENGINE ====================
+        class Simulation {
+            constructor() {
+                this.eventHeap = new EventHeap();
+                this.currentTime = 0;
+                this.running = false;
+                this.paused = false;
+                this.speed = 1;
+                this.jobIdCounter = { count: 1 };
+                this.totalEventsProcessed = 0;
+                this.wallClockStart = 0;
+                this.simTimeAtStart = 0;
+                this.lastChartUpdate = 0;
+                this.chartUpdateInterval = 0.5;
+                this.onChartUpdate = null;
+                this.onStateChange = null;
+                this.nodes = [];
+                this.connections = [];
+                this._rafId = null;
+            }
+            init(nodes, connections) {
+                this.nodes = nodes;
+                this.connections = connections;
+                this.eventHeap.clear();
+                this.currentTime = 0;
+                this.totalEventsProcessed = 0;
+                this.jobIdCounter.count = 1;
+                this.lastChartUpdate = 0;
+                // Reset all nodes
+                for (const node of nodes) {
+                    if (node instanceof SourceNode) {
+                        node.generatedCount = 0;
+                        node.nextGenerateTime = 0;
+                        node.prng.setSeed(node.seed);
+                    }
+                    if (node instanceof QueueNode) {
+                        node.waitingQueue = [];
+                        node.busyChannels = 0;
+                        node.stats.reset();
+                        node.prng.setSeed(node.seed);
+                        node.lastStateTime = 0;
+                    }
+                    if (node instanceof SinkNode) {
+                        node.receivedCount = 0;
+                    }
+                }
+                // Schedule initial generate events
+                for (const node of nodes) {
+                    if (node instanceof SourceNode) {
+                        const evt = node.scheduleNext(0, this.eventHeap, this.jobIdCounter);
+                        if (evt) this.eventHeap.push(evt);
+                    }
+                    if (node instanceof QueueNode) {
+                        node.stats.initChannelTracking(0, 0);
+                        node.stats.initQueueTracking(0, 0);
+                    }
+                }
+                this._updateUI();
+            }
+            start() {
+                if (this.running && !this.paused) return;
+                if (!this.running) {
+                    this.init(this.nodes, this.connections);
+                }
+                this.running = true;
+                this.paused = false;
+                this.wallClockStart = performance.now() / 1000;
+                this.simTimeAtStart = this.currentTime;
+                this._runLoop();
+                if (this.onStateChange) this.onStateChange('running');
+            }
+            pause() {
+                this.paused = true;
+                if (this._rafId) cancelAnimationFrame(this._rafId);
+                this._rafId = null;
+                if (this.onStateChange) this.onStateChange('paused');
+            }
+            reset() {
+                this.paused = true;
+                this.running = false;
+                if (this._rafId) cancelAnimationFrame(this._rafId);
+                this._rafId = null;
+                this.init(this.nodes, this.connections);
+                this._updateUI();
+                if (this.onStateChange) this.onStateChange('stopped');
+            }
+            _runLoop() {
+                if (this.paused || !this.running) return;
+                const now = performance.now() / 1000;
+                let targetTime;
+                if (this.speed === 0) {
+                    targetTime = Infinity;
+                } else {
+                    targetTime = this.simTimeAtStart + (now - this.wallClockStart) * this.speed;
+                }
+                let eventsProcessed = 0;
+                const maxBatch = this.speed === 0 ? 5000 : 200;
+                while (this.eventHeap.size() > 0 && eventsProcessed < maxBatch) {
+                    const evt = this.eventHeap.peek();
+                    if (evt.time > targetTime && this.speed !== 0) break;
+                    this.eventHeap.pop();
+                    this.currentTime = evt.time;
+                    this._processEvent(evt);
+                    eventsProcessed++;
+                    this.totalEventsProcessed++;
+                    if (this.speed === 0 && eventsProcessed >= maxBatch) break;
+                }
+                if (this.speed === 0 && this.eventHeap.size() > 0) {
+                    targetTime = this.eventHeap.peek().time;
+                }
+                if (this.currentTime - this.lastChartUpdate >= this.chartUpdateInterval ||
+                    (this.eventHeap.size() === 0 && this.totalEventsProcessed > 0)) {
+                    this.lastChartUpdate = this.currentTime;
+                    if (this.onChartUpdate) this.onChartUpdate(this.currentTime);
+                }
+                if (this.eventHeap.size() === 0 && this.speed === 0) {
+                    this.paused = true;
+                    this.running = false;
+                    if (this.onChartUpdate) this.onChartUpdate(this.currentTime);
+                    if (this.onStateChange) this.onStateChange('finished');
+                }
+                this._updateUI();
+                if (this.running && !this.paused) {
+                    this._rafId = requestAnimationFrame(() => this._runLoop());
+                }
+            }
+            _processEvent(evt) {
+                switch (evt.type) {
+                    case 'GENERATE':
+                        this._handleGenerate(evt);
+                        break;
+                    case 'ARRIVAL':
+                        this._handleArrival(evt);
+                        break;
+                    case 'SERVICE_COMPLETE':
+                        this._handleServiceComplete(evt);
+                        break;
+                }
+            }
+            _handleGenerate(evt) {
+                const source = evt.data.source;
+                const job = evt.data.job;
+                // Find outgoing connections
+                const outConns = this.connections.filter(c => c.fromNode.id === source.id);
+                if (outConns.length === 0) {
+                    // No connections, job is lost
+                } else if (outConns.length === 1) {
+                    this.eventHeap.push(new SimEvent(this.currentTime, 'ARRIVAL', {
+                        job,
+                        targetNode: outConns[0].toNode,
+                        fromNode: source,
+                    }, 2));
+                } else {
+                    // Probabilistic routing
+                    const totalWeight = outConns.reduce((s, c) => s + c.weight, 0);
+                    let r = source.prng.next() * totalWeight;
+                    let chosen = outConns[0];
+                    for (const conn of outConns) {
+                        r -= conn.weight;
+                        if (r <= 0) { chosen = conn; break; }
+                    }
+                    this.eventHeap.push(new SimEvent(this.currentTime, 'ARRIVAL', {
+                        job,
+                        targetNode: chosen.toNode,
+                        fromNode: source,
+                    }, 2));
+                }
+                // Schedule next generation
+                const nextEvt = source.scheduleNext(this.currentTime, this.eventHeap, this.jobIdCounter);
+                if (nextEvt) this.eventHeap.push(nextEvt);
+            }
+            _handleArrival(evt) {
+                const { job, targetNode } = evt.data;
+                job.arrivalTime = this.currentTime;
+                if (targetNode instanceof QueueNode) {
+                    const q = targetNode;
+                    q.stats.recordArrival(this.currentTime);
+                    const maxQ = q.maxQueueLength;
+                    if (maxQ > 0 && q.waitingQueue.length >= maxQ) {
+                        q.stats.recordRejection(this.currentTime);
+                        return;
+                    }
+                    // Generate service time
+                    if (job.serviceTime === null) {
+                        job.serviceTime = q.generateServiceTime();
+                    }
+                    q.waitingQueue.push(job);
+                    q.stats._updateQueueLength(this.currentTime, q.waitingQueue.length);
+                    // Try to start service if channels are free
+                    this._tryStartService(q);
+                } else if (targetNode instanceof SinkNode) {
+                    targetNode.receivedCount++;
+                }
+            }
+            _tryStartService(q) {
+                while (q.busyChannels < q.numChannels && q.waitingQueue.length > 0) {
+                    const job = q.pickNextJob();
+                    if (!job) break;
+                    const prevBusy = q.busyChannels;
+                    q.busyChannels++;
+                    q.stats.recordServiceStart(this.currentTime, job, q.waitingQueue.length, prevBusy);
+                    const serviceTime = job.serviceTime ?? q.generateServiceTime();
+                    job.serviceTime = serviceTime;
+                    this.eventHeap.push(new SimEvent(this.currentTime + serviceTime, 'SERVICE_COMPLETE', {
+                        queue: q,
+                        job,
+                    }, 3));
+                }
+            }
+            _handleServiceComplete(evt) {
+                const { queue: q, job } = evt.data;
+                const prevBusy = q.busyChannels;
+                q.busyChannels = Math.max(0, q.busyChannels - 1);
+                q.stats.recordServiceComplete(this.currentTime, job, q.waitingQueue.length, prevBusy);
+                // Route served job
+                const outConns = this.connections.filter(c => c.fromNode.id === q.id);
+                if (outConns.length === 1) {
+                    this.eventHeap.push(new SimEvent(this.currentTime, 'ARRIVAL', {
+                        job,
+                        targetNode: outConns[0].toNode,
+                        fromNode: q,
+                    }, 2));
+                } else if (outConns.length > 1) {
+                    const totalWeight = outConns.reduce((s, c) => s + c.weight, 0);
+                    let r = q.prng.next() * totalWeight;
+                    let chosen = outConns[0];
+                    for (const conn of outConns) {
+                        r -= conn.weight;
+                        if (r <= 0) { chosen = conn; break; }
+                    }
+                    this.eventHeap.push(new SimEvent(this.currentTime, 'ARRIVAL', {
+                        job,
+                        targetNode: chosen.toNode,
+                        fromNode: q,
+                    }, 2));
+                }
+                // Try to start next service
+                this._tryStartService(q);
+            }
+            _updateUI() {
+                document.getElementById('stime').textContent = this.currentTime.toFixed(3);
+                document.getElementById('sevents').textContent = this.totalEventsProcessed;
+                let totalJobs = 0;
+                for (const node of this.nodes) {
+                    if (node instanceof QueueNode) totalJobs += node.waitingQueue.length + node.busyChannels;
+                }
+                document.getElementById('sjobs').textContent = totalJobs;
+            }
+            setSpeed(s) { this.speed = s; }
+        }
+
+        // ==================== GRAPH RENDERER ====================
+        class GraphRenderer {
+            constructor(canvas, nodes, connections) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.nodes = nodes;
+                this.connections = connections;
+                this.offsetX = 0;
+                this.offsetY = 0;
+                this.scale = 1;
+                this.selectedElement = null;
+                this.draggingNode = null;
+                this.draggingOffset = { x: 0, y: 0 };
+                this.panning = false;
+                this.panStart = { x: 0, y: 0 };
+                this.panOffsetStart = { x: 0, y: 0 };
+                this.connectingFrom = null;
+                this.mousePos = { x: 0, y: 0 };
+                this.nodeRadius = 40;
+                this.portRadius = 8;
+                this._resize();
+                window.addEventListener('resize', () => this._resize());
+            }
+            _resize() {
+                const rect = this.canvas.parentElement.getBoundingClientRect();
+                const dpr = window.devicePixelRatio || 1;
+                this.canvas.width = rect.width * dpr;
+                this.canvas.height = rect.height * dpr;
+                this.canvas.style.width = rect.width + 'px';
+                this.canvas.style.height = rect.height + 'px';
+                this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                this.width = rect.width;
+                this.height = rect.height;
+            }
+            screenToWorld(sx, sy) {
+                return {
+                    x: (sx - this.width / 2) / this.scale - this.offsetX,
+                    y: (sy - this.height / 2) / this.scale - this.offsetY,
+                };
+            }
+            worldToScreen(wx, wy) {
+                return {
+                    x: (wx + this.offsetX) * this.scale + this.width / 2,
+                    y: (wy + this.offsetY) * this.scale + this.height / 2,
+                };
+            }
+            getNodeAt(worldX, worldY) {
+                for (let i = this.nodes.length - 1; i >= 0; i--) {
+                    const node = this.nodes[i];
+                    const dx = worldX - node.x;
+                    const dy = worldY - node.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < this.nodeRadius + 5) return node;
+                }
+                return null;
+            }
+            getPortAt(worldX, worldY) {
+                for (const node of this.nodes) {
+                    for (const pt of node.outputPorts) {
+                        const pp = node.getPortPos(pt);
+                        const dx = worldX - pp.x;
+                        const dy = worldY - pp.y;
+                        if (Math.sqrt(dx * dx + dy * dy) < this.portRadius + 4) return { node, port: pt,
+                            type: 'out' };
+                    }
+                    for (const pt of node.inputPorts) {
+                        const pp = node.getPortPos(pt);
+                        const dx = worldX - pp.x;
+                        const dy = worldY - pp.y;
+                        if (Math.sqrt(dx * dx + dy * dy) < this.portRadius + 4) return { node, port: pt,
+                            type: 'in' };
+                    }
+                }
+                return null;
+            }
+            getConnectionAt(worldX, worldY) {
+                for (const conn of this.connections) {
+                    const fromP = conn.fromNode.getPortPos('out');
+                    const toP = conn.toNode.getPortPos('in');
+                    const dist = this._pointToSegmentDist(worldX, worldY, fromP.x, fromP.y, toP.x, toP.y);
+                    if (dist < 8) return conn;
+                }
+                return null;
+            }
+            _pointToSegmentDist(px, py, x1, y1, x2, y2) {
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const lenSq = dx * dx + dy * dy;
+                if (lenSq === 0) return Math.sqrt((px - x1) ** 2 + (py - y1) ** 2);
+                let t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+                t = Math.max(0, Math.min(1, t));
+                const cx = x1 + t * dx;
+                const cy = y1 + t * dy;
+                return Math.sqrt((px - cx) ** 2 + (py - cy) ** 2);
+            }
+            draw() {
+                const ctx = this.ctx;
+                ctx.clearRect(0, 0, this.width, this.height);
+                ctx.save();
+                ctx.translate(this.width / 2, this.height / 2);
+                ctx.scale(this.scale, this.scale);
+                ctx.translate(this.offsetX, this.offsetY);
+                // Grid
+                this._drawGrid(ctx);
+                // Connections
+                for (const conn of this.connections) {
+                    this._drawConnection(ctx, conn, conn === this.selectedElement);
+                }
+                // Nodes
+                for (const node of this.nodes) {
+                    this._drawNode(ctx, node, node === this.selectedElement);
+                }
+                // Connecting line
+                if (this.connectingFrom) {
+                    const fromP = this.connectingFrom.node.getPortPos(this.connectingFrom.port);
+                    ctx.beginPath();
+                    ctx.moveTo(fromP.x, fromP.y);
+                    ctx.lineTo(this.mousePos.x, this.mousePos.y);
+                    ctx.strokeStyle = '#ffaa00';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([6, 4]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+                ctx.restore();
+            }
+            _drawGrid(ctx) {
+                const gridSize = 50;
+                const startX = -this.offsetX - this.width / (2 * this.scale);
+                const startY = -this.offsetY - this.height / (2 * this.scale);
+                const endX = startX + this.width / this.scale;
+                const endY = startY + this.height / this.scale;
+                ctx.strokeStyle = '#2a2a38';
+                ctx.lineWidth = 0.5;
+                ctx.beginPath();
+                for (let x = Math.floor(startX / gridSize) * gridSize; x <= endX; x += gridSize) {
+                    ctx.moveTo(x, startY);
+                    ctx.lineTo(x, endY);
+                }
+                for (let y = Math.floor(startY / gridSize) * gridSize; y <= endY; y += gridSize) {
+                    ctx.moveTo(startX, y);
+                    ctx.lineTo(endX, y);
+                }
+                ctx.stroke();
+            }
+            _drawConnection(ctx, conn, selected) {
+                const fromP = conn.fromNode.getPortPos('out');
+                const toP = conn.toNode.getPortPos('in');
+                ctx.beginPath();
+                ctx.moveTo(fromP.x, fromP.y);
+                ctx.lineTo(toP.x, toP.y);
+                ctx.strokeStyle = selected ? '#ffcc00' : '#8899aa';
+                ctx.lineWidth = selected ? 3 : 2;
+                ctx.stroke();
+                // Arrowhead
+                const angle = Math.atan2(toP.y - fromP.y, toP.x - fromP.x);
+                const arrowLen = 12;
+                const ax = toP.x - Math.cos(angle) * 15;
+                const ay = toP.y - Math.sin(angle) * 15;
+                ctx.beginPath();
+                ctx.moveTo(ax, ay);
+                ctx.lineTo(ax - arrowLen * Math.cos(angle - 0.45), ay - arrowLen * Math.sin(angle - 0.45));
+                ctx.moveTo(ax, ay);
+                ctx.lineTo(ax - arrowLen * Math.cos(angle + 0.45), ay - arrowLen * Math.sin(angle + 0.45));
+                ctx.strokeStyle = selected ? '#ffcc00' : '#8899aa';
+                ctx.lineWidth = selected ? 3 : 2;
+                ctx.stroke();
+                // Weight label
+                const midX = (fromP.x + toP.x) / 2;
+                const midY = (fromP.y + toP.y) / 2;
+                ctx.fillStyle = '#e8b456';
+                ctx.font = '11px Segoe UI, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(conn.weight.toFixed(2), midX, midY - 8);
+            }
+            _drawNode(ctx, node, selected) {
+                const { x, y } = node;
+                // Shadow
+                ctx.shadowColor = selected ? 'rgba(255,200,50,0.5)' : 'rgba(0,0,0,0.3)';
+                ctx.shadowBlur = selected ? 18 : 8;
+                // Shape
+                if (node.type === 'source') {
+                    ctx.fillStyle = '#4ec9b0';
+                    ctx.beginPath();
+                    ctx.arc(x, y, this.nodeRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = selected ? '#fff' : '#2a8a70';
+                    ctx.lineWidth = selected ? 3 : 2;
+                    ctx.stroke();
+                    ctx.fillStyle = '#000';
+                    ctx.font = 'bold 16px Segoe UI, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('И', x, y + 6);
+                } else if (node.type === 'queue') {
+                    const w = this.nodeRadius * 1.6;
+                    const h = this.nodeRadius * 1.2;
+                    ctx.fillStyle = '#6c9cf5';
+                    ctx.beginPath();
+                    ctx.roundRect(x - w / 2, y - h / 2, w, h, 8);
+                    ctx.fill();
+                    ctx.strokeStyle = selected ? '#fff' : '#3a5fa0';
+                    ctx.lineWidth = selected ? 3 : 2;
+                    ctx.stroke();
+                    ctx.fillStyle = '#fff';
+                    ctx.font = 'bold 11px Segoe UI, sans-serif';
+                    ctx.textAlign = 'center';
+                    const discLabel = node.discipline || 'FIFO';
+                    ctx.fillText(discLabel, x, y + 4);
+                    // Channel indicators
+                    const chStr = '●'.repeat(Math.min(node.busyChannels || 0, node.numChannels)) +
+                        '○'.repeat(Math.max(0, node.numChannels - (node.busyChannels || 0)));
+                    ctx.font = '9px Segoe UI, sans-serif';
+                    ctx.fillText(chStr, x, y + h / 2 - 4);
+                    // Queue length
+                    if ((node.waitingQueue?.length || 0) > 0) {
+                        ctx.fillStyle = '#ff6644';
+                        ctx.beginPath();
+                        ctx.arc(x - w / 2 + 8, y - h / 2 + 8, 10, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.fillStyle = '#fff';
+                        ctx.font = 'bold 10px Segoe UI, sans-serif';
+                        ctx.fillText(node.waitingQueue.length, x - w / 2 + 8, y - h / 2 + 12);
+                    }
+                } else if (node.type === 'sink') {
+                    ctx.fillStyle = '#e05570';
+                    ctx.beginPath();
+                    ctx.arc(x, y, this.nodeRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = selected ? '#fff' : '#a03040';
+                    ctx.lineWidth = selected ? 3 : 2;
+                    ctx.stroke();
+                    ctx.fillStyle = '#000';
+                    ctx.font = 'bold 16px Segoe UI, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('С', x, y + 6);
+                }
+                ctx.shadowColor = 'transparent';
+                ctx.shadowBlur = 0;
+                // Name label
+                ctx.fillStyle = '#e0e0e0';
+                ctx.font = '11px Segoe UI, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(node.name, x, y - this.nodeRadius - 12);
+                // Port indicators
+                for (const pt of node.outputPorts) {
+                    const pp = node.getPortPos(pt);
+                    ctx.fillStyle = '#ffaa00';
+                    ctx.beginPath();
+                    ctx.arc(pp.x, pp.y, this.portRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#cc8800';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                }
+                for (const pt of node.inputPorts) {
+                    const pp = node.getPortPos(pt);
+                    ctx.fillStyle = '#66cc66';
+                    ctx.beginPath();
+                    ctx.arc(pp.x, pp.y, this.portRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#449944';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                }
+            }
+        }
+
+        // ==================== CHARTS MANAGER ====================
+        class ChartsManager {
+            constructor() {
+                this.charts = {};
+                this.colors = [
+                    '#4ec9b0', '#e05570', '#6c9cf5', '#e8b456', '#a877f0',
+                    '#f06292', '#4dd0e1', '#ff8a65', '#81c784', '#ba68c8',
+                    '#fff176', '#90a4ae', '#ef5350', '#42a5f5', '#66bb6a',
+                ];
+                this._initCharts();
+            }
+            _initCharts() {
+                const commonOpts = (title) => ({
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 150 },
+                    interaction: { mode: 'nearest', intersect: false },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { color: '#b0b0c0', font: { size: 9 }, boxWidth: 10, padding: 4 },
+                        },
+                        title: { display: true, text: title, color: '#b0b0c0', font: { size: 10 } },
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            title: { display: true, text: 'Модельное время', color: '#888' },
+                            ticks: { color: '#888', font: { size: 8 }, maxTicksLimit: 6 },
+                            grid: { color: '#2a2a38' },
+                        },
+                        y: {
+                            title: { display: true, text: '', color: '#888' },
+                            ticks: { color: '#888', font: { size: 8 }, maxTicksLimit: 5 },
+                            grid: { color: '#2a2a38' },
+                            min: 0,
+                        },
+                    },
+                });
+
+                const canvasIds = ['chart1', 'chart2', 'chart3', 'chart4', 'chart5'];
+                const titles = [
+                    'Вероятности обслуживания и отказа',
+                    'Пропускная способность A(t)',
+                    'Вероятности занятости каналов Pk(t)',
+                    'Средняя длина очереди и число в системе',
+                    'Средние времена',
+                ];
+                canvasIds.forEach((id, i) => {
+                    const canvas = document.getElementById(id);
+                    if (!canvas) return;
+                    const ctx = canvas.getContext('2d');
+                    this.charts[id] = new Chart(ctx, {
+                        type: 'line',
+                        data: { datasets: [] },
+                        options: commonOpts(titles[i]),
+                    });
+                });
+            }
+            updateForNode(node, currentTime) {
+                if (!(node instanceof QueueNode)) {
+                    this._clearAll();
+                    return;
+                }
+                const stats = node.stats;
+                if (stats.history.length === 0) {
+                    const s = stats.snapshot(currentTime);
+                }
+                const hist = stats.history;
+                const times = hist.map(h => h.time);
+                const C = node.numChannels;
+
+                // Chart 1: Pobs, Potk
+                this._updateChart('chart1', [
+                    { label: 'Pобс', data: hist.map(h => h.Pobs), color: this.colors[0], borderWidth: 2 },
+                    { label: 'Pотк', data: hist.map(h => h.Potk), color: this.colors[1], borderWidth: 2,
+                        borderDash: [5, 3] },
+                ], times, 'Вероятность');
+
+                // Chart 2: Throughput A
+                this._updateChart('chart2', [
+                    { label: 'A (пропускная способность)', data: hist.map(h => h.A), color: this.colors[2],
+                        borderWidth: 2 },
+                ], times, 'Заявок/ед.времени');
+
+                // Chart 3: Pk for k=0..C
+                const pkDatasets = [];
+                for (let k = 0; k <= C; k++) {
+                    pkDatasets.push({
+                        label: `P${k} (${k} кан.)`,
+                        data: hist.map(h => (h.Pk && h.Pk[k]) ? h.Pk[k] : 0),
+                        color: this.colors[k % this.colors.length],
+                        borderWidth: 1.5,
+                    });
+                }
+                this._updateChart('chart3', pkDatasets, times, 'Вероятность Pk');
+
+                // Chart 4: Nsz, Nsist
+                this._updateChart('chart4', [
+                    { label: 'Nсз (в очереди)', data: hist.map(h => h.Nsz), color: this.colors[3],
+                    borderWidth: 2 },
+                    { label: 'Nсист (в системе)', data: hist.map(h => h.Nsist), color: this.colors[4],
+                        borderWidth: 2, borderDash: [5, 3] },
+                ], times, 'Количество заявок');
+
+                // Chart 5: TavgWait, TavgService, TavgSystem
+                this._updateChart('chart5', [
+                    { label: 'Tср.ож', data: hist.map(h => h.TavgWait), color: this.colors[5], borderWidth: 2 },
+                    { label: 'Tср.обс', data: hist.map(h => h.TavgService), color: this.colors[6],
+                    borderWidth: 2 },
+                    { label: 'Tср.сист', data: hist.map(h => h.TavgSystem), color: this.colors[7],
+                        borderWidth: 2, borderDash: [5, 3] },
+                ], times, 'Время (у.е.)');
+            }
+            _updateChart(chartId, datasets, times, yLabel) {
+                const chart = this.charts[chartId];
+                if (!chart) return;
+                chart.data.labels = times;
+                chart.data.datasets = datasets.map((ds, i) => ({
+                    label: ds.label,
+                    data: ds.data,
+                    borderColor: ds.color,
+                    backgroundColor: ds.color + '30',
+                    borderWidth: ds.borderWidth || 1.5,
+                    borderDash: ds.borderDash || [],
+                    pointRadius: 0,
+                    tension: 0.1,
+                    fill: false,
+                }));
+                if (chart.options.scales.y) {
+                    chart.options.scales.y.title.text = yLabel;
+                }
+                chart.update('none');
+            }
+            _clearAll() {
+                for (const key of Object.keys(this.charts)) {
+                    this.charts[key].data.datasets = [];
+                    this.charts[key].data.labels = [];
+                    this.charts[key].update('none');
+                }
+            }
+            clearAll() { this._clearAll(); }
+        }
+
+        // ==================== MAIN APPLICATION ====================
+        class App {
+            constructor() {
+                this.nodes = [];
+                this.connections = [];
+                this.nextId = 1;
+                this.simulation = new Simulation();
+                this.renderer = null;
+                this.chartsManager = new ChartsManager();
+                this.selectedElement = null;
+                this.addMode = null;
+                this._initCanvas();
+                this._initSimCallbacks();
+                this._initToolbar();
+                this._initMouseHandlers();
+                this._initKeyboard();
+                this._updatePropsPanel();
+                this._updateStatusBar('stopped');
+                this._renderLoop();
+            }
+            _initCanvas() {
+                const canvas = document.getElementById('graphCanvas');
+                this.renderer = new GraphRenderer(canvas, this.nodes, this.connections);
+                this.renderer.draw();
+            }
+            _initSimCallbacks() {
+                this.simulation.onChartUpdate = (time) => {
+                    if (this.selectedElement instanceof QueueNode) {
+                        this.selectedElement.stats.snapshot(time);
+                        this.chartsManager.updateForNode(this.selectedElement, time);
+                    }
+                };
+                this.simulation.onStateChange = (state) => {
+                    this._updateStatusBar(state);
+                    if (state === 'stopped' || state === 'finished') {
+                        this.chartsManager.clearAll();
+                    }
+                };
+            }
+            _initToolbar() {
+                document.getElementById('btn-source').addEventListener('click', () => this._setAddMode('source'));
+                document.getElementById('btn-queue-fifo').addEventListener('click', () => this._setAddMode(
+                    'queue-fifo'));
+                document.getElementById('btn-queue-lifo').addEventListener('click', () => this._setAddMode(
+                    'queue-lifo'));
+                document.getElementById('btn-queue-sf').addEventListener('click', () => this._setAddMode('queue-sf'));
+                document.getElementById('btn-sink').addEventListener('click', () => this._setAddMode('sink'));
+                document.getElementById('btn-start').addEventListener('click', () => this.simulation.start());
+                document.getElementById('btn-pause').addEventListener('click', () => this.simulation.pause());
+                document.getElementById('btn-reset').addEventListener('click', () => {
+                    this.simulation.reset();
+                    this.chartsManager.clearAll();
+                    this.renderer.draw();
+                });
+                document.getElementById('btn-save').addEventListener('click', () => this._saveTopology());
+                document.getElementById('btn-load').addEventListener('click', () => document.getElementById(
+                    'load-file').click());
+                document.getElementById('load-file').addEventListener('change', (e) => this._loadTopology(e));
+                // Speed buttons
+                const speedGroup = document.getElementById('speed-group');
+                speedGroup.querySelectorAll('button').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        speedGroup.querySelectorAll('button').forEach(b => b.classList.remove(
+                            'active-speed'));
+                        btn.classList.add('active-speed');
+                        this.simulation.setSpeed(parseInt(btn.dataset.speed));
+                    });
+                });
+            }
+            _setAddMode(mode) {
+                this.addMode = this.addMode === mode ? null : mode;
+                document.querySelectorAll('#toolbar button').forEach(b => {
+                    if (b.id.startsWith('btn-source') || b.id.startsWith('btn-queue') || b.id.startsWith(
+                            'btn-sink')) {
+                        b.classList.remove('active');
+                    }
+                });
+                if (this.addMode) {
+                    const btnMap = {
+                        'source': 'btn-source',
+                        'queue-fifo': 'btn-queue-fifo',
+                        'queue-lifo': 'btn-queue-lifo',
+                        'queue-sf': 'btn-queue-sf',
+                        'sink': 'btn-sink',
+                    };
+                    const btnId = btnMap[this.addMode];
+                    if (btnId) document.getElementById(btnId).classList.add('active');
+                }
+            }
+            _initMouseHandlers() {
+                const wrap = document.getElementById('canvas-wrap');
+                const canvas = document.getElementById('graphCanvas');
+                wrap.addEventListener('mousedown', (e) => this._onMouseDown(e));
+                wrap.addEventListener('mousemove', (e) => this._onMouseMove(e));
+                wrap.addEventListener('mouseup', (e) => this._onMouseUp(e));
+                wrap.addEventListener('wheel', (e) => this._onWheel(e));
+                wrap.addEventListener('dblclick', (e) => this._onDblClick(e));
+                wrap.addEventListener('contextmenu', (e) => e.preventDefault());
+            }
+            _onMouseDown(e) {
+                if (e.button !== 0) return;
+                const rect = this.renderer.canvas.getBoundingClientRect();
+                const sx = e.clientX - rect.left;
+                const sy = e.clientY - rect.top;
+                const world = this.renderer.screenToWorld(sx, sy);
+                this.renderer.mousePos = world;
+                if (this.addMode) {
+                    this._createNode(this.addMode, world.x, world.y);
+                    this.addMode = null;
+                    this._setAddMode(null);
+                    return;
+                }
+                // Check ports first
+                const portHit = this.renderer.getPortAt(world.x, world.y);
+                if (portHit && portHit.type === 'out') {
+                    this.renderer.connectingFrom = portHit;
+                    this.renderer.draw();
+                    return;
+                }
+                // Check nodes
+                const nodeHit = this.renderer.getNodeAt(world.x, world.y);
+                if (nodeHit) {
+                    this.selectedElement = nodeHit;
+                    this.renderer.selectedElement = nodeHit;
+                    this.renderer.draggingNode = nodeHit;
+                    this.renderer.draggingOffset = { x: world.x - nodeHit.x, y: world.y - nodeHit.y };
+                    this._updatePropsPanel();
+                    this._updateChartsForSelection();
+                    this.renderer.draw();
+                    return;
+                }
+                // Check connections
+                const connHit = this.renderer.getConnectionAt(world.x, world.y);
+                if (connHit) {
+                    this.selectedElement = connHit;
+                    this.renderer.selectedElement = connHit;
+                    this._updatePropsPanel();
+                    this.renderer.draw();
+                    return;
+                }
+                // Start panning
+                this.selectedElement = null;
+                this.renderer.selectedElement = null;
+                this.renderer.panning = true;
+                this.renderer.panStart = { x: e.clientX, y: e.clientY };
+                this.renderer.panOffsetStart = { x: this.renderer.offsetX, y: this.renderer.offsetY };
+                this._updatePropsPanel();
+                this.renderer.draw();
+            }
+            _onMouseMove(e) {
+                const rect = this.renderer.canvas.getBoundingClientRect();
+                const sx = e.clientX - rect.left;
+                const sy = e.clientY - rect.top;
+                const world = this.renderer.screenToWorld(sx, sy);
+                this.renderer.mousePos = world;
+                if (this.renderer.draggingNode) {
+                    this.renderer.draggingNode.x = world.x - this.renderer.draggingOffset.x;
+                    this.renderer.draggingNode.y = world.y - this.renderer.draggingOffset.y;
+                    this.renderer.draw();
+                    return;
+                }
+                if (this.renderer.panning) {
+                    this.renderer.offsetX = this.renderer.panOffsetStart.x + (e.clientX - this.renderer.panStart
+                        .x) / this.renderer.scale;
+                    this.renderer.offsetY = this.renderer.panOffsetStart.y + (e.clientY - this.renderer.panStart
+                        .y) / this.renderer.scale;
+                    this.renderer.draw();
+                    return;
+                }
+                if (this.renderer.connectingFrom) {
+                    this.renderer.draw();
+                    return;
+                }
+                // Hover effect
+                const portHit = this.renderer.getPortAt(world.x, world.y);
+                const nodeHit = this.renderer.getNodeAt(world.x, world.y);
+                const wrap = document.getElementById('canvas-wrap');
+                if (portHit?.type === 'out' && !this.renderer.draggingNode) {
+                    wrap.style.cursor = 'crosshair';
+                } else if (nodeHit && !this.renderer.draggingNode) {
+                    wrap.style.cursor = 'pointer';
+                } else if (this.renderer.panning) {
+                    wrap.style.cursor = 'grabbing';
+                } else {
+                    wrap.style.cursor = 'grab';
+                }
+            }
+            _onMouseUp(e) {
+                const rect = this.renderer.canvas.getBoundingClientRect();
+                const sx = e.clientX - rect.left;
+                const sy = e.clientY - rect.top;
+                const world = this.renderer.screenToWorld(sx, sy);
+                if (this.renderer.connectingFrom) {
+                    const portHit = this.renderer.getPortAt(world.x, world.y);
+                    if (portHit && portHit.type === 'in' && portHit.node !== this.renderer.connectingFrom.node) {
+                        this._createConnection(this.renderer.connectingFrom.node, portHit.node);
+                    }
+                    this.renderer.connectingFrom = null;
+                    this.renderer.draw();
+                    return;
+                }
+                this.renderer.draggingNode = null;
+                this.renderer.panning = false;
+                this.renderer.draw();
+            }
+            _onWheel(e) {
+                e.preventDefault();
+                const zoomFactor = 1.08;
+                const rect = this.renderer.canvas.getBoundingClientRect();
+                const sx = e.clientX - rect.left;
+                const sy = e.clientY - rect.top;
+                const worldBefore = this.renderer.screenToWorld(sx, sy);
+                if (e.deltaY < 0) {
+                    this.renderer.scale *= zoomFactor;
+                } else {
+                    this.renderer.scale /= zoomFactor;
+                }
+                this.renderer.scale = Math.max(0.15, Math.min(8, this.renderer.scale));
+                const worldAfter = this.renderer.screenToWorld(sx, sy);
+                this.renderer.offsetX += worldBefore.x - worldAfter.x;
+                this.renderer.offsetY += worldBefore.y - worldAfter.y;
+                this.renderer.draw();
+            }
+            _onDblClick(e) {
+                const rect = this.renderer.canvas.getBoundingClientRect();
+                const sx = e.clientX - rect.left;
+                const sy = e.clientY - rect.top;
+                const world = this.renderer.screenToWorld(sx, sy);
+                const nodeHit = this.renderer.getNodeAt(world.x, world.y);
+                if (nodeHit) {
+                    this.selectedElement = nodeHit;
+                    this.renderer.selectedElement = nodeHit;
+                    this._updatePropsPanel();
+                    this._updateChartsForSelection();
+                    this.renderer.draw();
+                }
+            }
+            _initKeyboard() {
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Delete' || e.key === 'Backspace') {
+                        if (this.selectedElement) {
+                            this._deleteSelected();
+                        }
+                    }
+                    if (e.key === 'Escape') {
+                        this.addMode = null;
+                        this._setAddMode(null);
+                        this.renderer.connectingFrom = null;
+                        this.renderer.draw();
+                    }
+                });
+            }
+            _createNode(type, x, y) {
+                let node;
+                const id = this.nextId++;
+                switch (type) {
+                    case 'source':
+                        node = new SourceNode(id, x, y);
+                        break;
+                    case 'queue-fifo':
+                        node = new QueueNode(id, x, y, 'FIFO');
+                        break;
+                    case 'queue-lifo':
+                        node = new QueueNode(id, x, y, 'LIFO');
+                        break;
+                    case 'queue-sf':
+                        node = new QueueNode(id, x, y, 'SF');
+                        break;
+                    case 'sink':
+                        node = new SinkNode(id, x, y);
+                        break;
+                }
+                if (node) {
+                    this.nodes.push(node);
+                    this.selectedElement = node;
+                    this.renderer.selectedElement = node;
+                    this.renderer.nodes = this.nodes;
+                    this.simulation.nodes = this.nodes;
+                    this._updatePropsPanel();
+                    this.renderer.draw();
+                }
+            }
+            _createConnection(fromNode, toNode) {
+                // Validate
+                if (fromNode instanceof SinkNode) return;
+                if (toNode instanceof SourceNode) return;
+                if (fromNode === toNode) return;
+                // Check duplicate
+                const exists = this.connections.some(c => c.fromNode === fromNode && c.toNode === toNode);
+                if (exists) return;
+                const conn = new Connection(this.nextId++, fromNode, toNode, 1);
+                this.connections.push(conn);
+                fromNode.connectionsOut.push(conn);
+                this.renderer.connections = this.connections;
+                this.simulation.connections = this.connections;
+                this.renderer.draw();
+            }
+            _deleteSelected() {
+                if (!this.selectedElement) return;
+                if (this.selectedElement instanceof BaseNode) {
+                    const node = this.selectedElement;
+                    this.nodes = this.nodes.filter(n => n !== node);
+                    this.connections = this.connections.filter(c => c.fromNode !== node && c.toNode !== node);
+                    for (const n of this.nodes) {
+                        if (n.connectionsOut) n.connectionsOut = n.connectionsOut.filter(c => c.fromNode !==
+                            node && c.toNode !== node);
+                    }
+                } else if (this.selectedElement instanceof Connection) {
+                    const conn = this.selectedElement;
+                    this.connections = this.connections.filter(c => c !== conn);
+                    conn.fromNode.connectionsOut = conn.fromNode.connectionsOut.filter(c => c !== conn);
+                }
+                this.selectedElement = null;
+                this.renderer.selectedElement = null;
+                this.renderer.nodes = this.nodes;
+                this.renderer.connections = this.connections;
+                this.simulation.nodes = this.nodes;
+                this.simulation.connections = this.connections;
+                this._updatePropsPanel();
+                this.renderer.draw();
+            }
+            _updatePropsPanel() {
+                const container = document.getElementById('props-content');
+                const el = this.selectedElement;
+                if (!el) {
+                    container.innerHTML = '<div id="no-select">Выберите узел или соединение</div>';
+                    return;
+                }
+                if (el instanceof SourceNode) {
+                    container.innerHTML = this._sourcePropsHTML(el);
+                    this._bindSourceProps(el, container);
+                } else if (el instanceof QueueNode) {
+                    container.innerHTML = this._queuePropsHTML(el);
+                    this._bindQueueProps(el, container);
+                } else if (el instanceof SinkNode) {
+                    container.innerHTML = this._sinkPropsHTML(el);
+                    this._bindSinkProps(el, container);
+                } else if (el instanceof Connection) {
+                    container.innerHTML = this._connPropsHTML(el);
+                    this._bindConnProps(el, container);
+                }
+            }
+            _sourcePropsHTML(node) {
+                return `
+                <label>Название: <input id="prop-name" value="${this._esc(node.name)}"></label>
+                <label>Распределение:
+                    <select id="prop-dist">
+                        <option value="exponential" ${node.distribution==='exponential'?'selected':''}>Экспоненциальное</option>
+                        <option value="constant" ${node.distribution==='constant'?'selected':''}>Константное</option>
+                        <option value="uniform" ${node.distribution==='uniform'?'selected':''}>Равномерное</option>
+                    </select>
+                </label>
+                <label id="prop-lambda-label" style="${node.distribution!=='exponential'?'display:none':''}">Интенсивность λ: <input id="prop-lambda" type="number" step="0.1" min="0.01" value="${node.lambda}"></label>
+                <label id="prop-const-label" style="${node.distribution!=='constant'?'display:none':''}">Интервал (константа): <input id="prop-const" type="number" step="0.1" min="0.01" value="${node.constInterval}"></label>
+                <label id="prop-unimin-label" style="${node.distribution!=='uniform'?'display:none':''}">Мин. интервал: <input id="prop-unimin" type="number" step="0.1" min="0.01" value="${node.uniformMin}"></label>
+                <label id="prop-unimax-label" style="${node.distribution!=='uniform'?'display:none':''}">Макс. интервал: <input id="prop-unimax" type="number" step="0.1" min="0.01" value="${node.uniformMax}"></label>
+                <label>Seed: <input id="prop-seed" type="number" min="0" value="${node.seed}"></label>
+                <label>Макс. заявок (0=бесконечно): <input id="prop-maxjobs" type="number" min="0" value="${node.maxJobs===Infinity?0:node.maxJobs}"></label>
+                <div style="font-size:10px;color:var(--text2)">Сгенерировано: ${node.generatedCount}</div>
+              `;
+            }
+            _bindSourceProps(node, container) {
+                const apply = () => {
+                    node.name = document.getElementById('prop-name').value || 'Источник';
+                    node.distribution = document.getElementById('prop-dist').value;
+                    node.lambda = parseFloat(document.getElementById('prop-lambda').value) || 1;
+                    node.constInterval = parseFloat(document.getElementById('prop-const').value) || 1;
+                    node.uniformMin = parseFloat(document.getElementById('prop-unimin').value) || 0.5;
+                    node.uniformMax = parseFloat(document.getElementById('prop-unimax').value) || 1.5;
+                    node.seed = parseInt(document.getElementById('prop-seed').value) || 42;
+                    const mj = parseInt(document.getElementById('prop-maxjobs').value) || 0;
+                    node.maxJobs = mj <= 0 ? Infinity : mj;
+                    node.prng.setSeed(node.seed);
+                    this.renderer.draw();
+                };
+                container.querySelectorAll('input, select').forEach(el => {
+                    el.addEventListener('change', apply);
+                    el.addEventListener('input', apply);
+                });
+                document.getElementById('prop-dist').addEventListener('change', () => {
+                    const dist = document.getElementById('prop-dist').value;
+                    document.getElementById('prop-lambda-label').style.display = dist ===
+                        'exponential' ? '' : 'none';
+                    document.getElementById('prop-const-label').style.display = dist === 'constant' ? '' :
+                        'none';
+                    document.getElementById('prop-unimin-label').style.display = dist === 'uniform' ? '' :
+                        'none';
+                    document.getElementById('prop-unimax-label').style.display = dist === 'uniform' ? '' :
+                        'none';
+                    apply();
+                });
+            }
+            _queuePropsHTML(node) {
+                return `
+                <label>Название: <input id="prop-name" value="${this._esc(node.name)}"></label>
+                <label>Дисциплина:
+                    <select id="prop-disc">
+                        <option value="FIFO" ${node.discipline==='FIFO'?'selected':''}>FIFO</option>
+                        <option value="LIFO" ${node.discipline==='LIFO'?'selected':''}>LIFO</option>
+                        <option value="SF" ${node.discipline==='SF'?'selected':''}>SF (Shortest First)</option>
+                    </select>
+                </label>
+                <label>Каналов (C): <input id="prop-channels" type="number" min="1" value="${node.numChannels}"></label>
+                <label>Распределение обслуживания:
+                    <select id="prop-servdist">
+                        <option value="constant" ${node.serviceDistribution==='constant'?'selected':''}>Фиксированное</option>
+                        <option value="exponential" ${node.serviceDistribution==='exponential'?'selected':''}>Экспоненциальное</option>
+                    </select>
+                </label>
+                <label id="prop-servconst-label" style="${node.serviceDistribution!=='constant'?'display:none':''}">Время обслуживания: <input id="prop-servconst" type="number" step="0.1" min="0.01" value="${node.serviceConst}"></label>
+                <label id="prop-servmu-label" style="${node.serviceDistribution!=='exponential'?'display:none':''}">Среднее (1/μ): <input id="prop-servmu" type="number" step="0.1" min="0.01" value="${node.serviceMu}"></label>
+                <label>Макс. длина очереди (0=без огр.): <input id="prop-maxq" type="number" min="0" value="${node.maxQueueLength}"></label>
+                <label>Seed: <input id="prop-seed" type="number" min="0" value="${node.seed}"></label>
+                <div style="font-size:10px;color:var(--text2)">В очереди: ${node.waitingQueue.length} | Занято каналов: ${node.busyChannels}/${node.numChannels}</div>
+              `;
+            }
+            _bindQueueProps(node, container) {
+                const apply = () => {
+                    node.name = document.getElementById('prop-name').value || 'Очередь';
+                    node.discipline = document.getElementById('prop-disc').value;
+                    node.numChannels = Math.max(1, parseInt(document.getElementById('prop-channels').value) ||
+                        1);
+                    node.serviceDistribution = document.getElementById('prop-servdist').value;
+                    node.serviceConst = parseFloat(document.getElementById('prop-servconst').value) || 1;
+                    node.serviceMu = parseFloat(document.getElementById('prop-servmu').value) || 1;
+                    node.maxQueueLength = parseInt(document.getElementById('prop-maxq').value) || 0;
+                    node.seed = parseInt(document.getElementById('prop-seed').value) || 100;
+                    node.prng.setSeed(node.seed);
+                    this.renderer.draw();
+                };
+                container.querySelectorAll('input, select').forEach(el => {
+                    el.addEventListener('change', apply);
+                    el.addEventListener('input', apply);
+                });
+                document.getElementById('prop-servdist').addEventListener('change', () => {
+                    const dist = document.getElementById('prop-servdist').value;
+                    document.getElementById('prop-servconst-label').style.display = dist === 'constant' ?
+                        '' : 'none';
+                    document.getElementById('prop-servmu-label').style.display = dist === 'exponential' ?
+                        '' : 'none';
+                    apply();
+                });
+            }
+            _sinkPropsHTML(node) {
+                return `
+                <label>Название: <input id="prop-name" value="${this._esc(node.name)}"></label>
+                <div style="font-size:10px;color:var(--text2)">Принято заявок: ${node.receivedCount}</div>
+              `;
+            }
+            _bindSinkProps(node, container) {
+                container.querySelector('#prop-name').addEventListener('input', () => {
+                    node.name = document.getElementById('prop-name').value || 'Сток';
+                    this.renderer.draw();
+                });
+            }
+            _connPropsHTML(conn) {
+                return `
+                <div style="font-size:12px;color:var(--text2)">Соединение #${conn.id}</div>
+                <div style="font-size:11px;">От: <b>${this._esc(conn.fromNode.name)}</b> → К: <b>${this._esc(conn.toNode.name)}</b></div>
+                <label>Вес (вероятность): <input id="prop-weight" type="number" step="0.01" min="0.01" value="${conn.weight}"></label>
+              `;
+            }
+            _bindConnProps(conn, container) {
+                container.querySelector('#prop-weight').addEventListener('input', () => {
+                    conn.weight = Math.max(0.01, parseFloat(document.getElementById('prop-weight').value) ||
+                        1);
+                    this.renderer.draw();
+                });
+            }
+            _esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g,
+                    '&quot;'); }
+            _updateChartsForSelection() {
+                if (this.selectedElement instanceof QueueNode && this.simulation.running) {
+                    const time = this.simulation.currentTime;
+                    this.selectedElement.stats.snapshot(time);
+                    this.chartsManager.updateForNode(this.selectedElement, time);
+                } else if (this.selectedElement instanceof QueueNode) {
+                    this.chartsManager.updateForNode(this.selectedElement, this.simulation.currentTime || 0);
+                } else {
+                    this.chartsManager.clearAll();
+                }
+            }
+            _updateStatusBar(state) {
+                const el = document.getElementById('sstate');
+                switch (state) {
+                    case 'running':
+                        el.textContent = '▶ Выполняется';
+                        el.style.color = '#4ec9b0';
+                        break;
+                    case 'paused':
+                        el.textContent = '⏸ Пауза';
+                        el.style.color = '#e8b456';
+                        break;
+                    case 'finished':
+                        el.textContent = '✓ Завершено';
+                        el.style.color = '#4ec9b0';
+                        break;
+                    default:
+                        el.textContent = '⏹ Остановлено';
+                        el.style.color = '#e05570';
+                }
+            }
+            _saveTopology() {
+                const data = {
+                    nodes: this.nodes.map(n => n.toJSON()),
+                    connections: this.connections.map(c => c.toJSON()),
+                    nextId: this.nextId,
+                };
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'smo_topology.json';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+            _loadTopology(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        this._applyTopology(data);
+                    } catch (err) {
+                        alert('Ошибка загрузки файла: ' + err.message);
+                    }
+                };
+                reader.readAsText(file);
+                event.target.value = '';
+            }
+            _applyTopology(data) {
+                this.simulation.reset();
+                this.chartsManager.clearAll();
+                const nodeMap = new Map();
+                this.nodes = [];
+                for (const nd of data.nodes) {
+                    let node;
+                    switch (nd.type) {
+                        case 'source':
+                            node = SourceNode.fromJSON(nd);
+                            break;
+                        case 'queue':
+                            node = QueueNode.fromJSON(nd);
+                            break;
+                        case 'sink':
+                            node = SinkNode.fromJSON(nd);
+                            break;
+                    }
+                    if (node) {
+                        this.nodes.push(node);
+                        nodeMap.set(node.id, node);
+                    }
+                }
+                this.nextId = data.nextId || (Math.max(...this.nodes.map(n => n.id), 0) + 1);
+                this.connections = [];
+                for (const cd of data.connections) {
+                    const fromNode = nodeMap.get(cd.fromNodeId);
+                    const toNode = nodeMap.get(cd.toNodeId);
+                    if (fromNode && toNode) {
+                        const conn = new Connection(cd.id || this.nextId++, fromNode, toNode, cd.weight || 1);
+                        this.connections.push(conn);
+                        fromNode.connectionsOut.push(conn);
+                    }
+                }
+                this.selectedElement = null;
+                this.renderer.selectedElement = null;
+                this.renderer.nodes = this.nodes;
+                this.renderer.connections = this.connections;
+                this.simulation.nodes = this.nodes;
+                this.simulation.connections = this.connections;
+                this._updatePropsPanel();
+                this.renderer.draw();
+            }
+            _renderLoop() {
+                this.renderer.draw();
+                requestAnimationFrame(() => this._renderLoop());
+            }
+        }
+
+        // ==================== STARTUP ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            const app = new App();
+            // Expose for debugging
+            window._app = app;
+            console.log('Симулятор СМО готов. Используйте кнопки панели инструментов для создания узлов.');
+            console.log('Перетаскивайте от выходного порта (оранжевый) к входному (зелёный) для создания соединений.');
+            console.log('Выберите очередь и запустите симуляцию для просмотра графиков в реальном времени.');
+        });
+    </script>
+</body>
+</html>
