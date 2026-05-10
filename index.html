@@ -924,6 +924,9 @@
                 this.init(this.nodes, this.connections);
                 this._updateUI();
                 if (this.onStateChange) this.onStateChange('stopped');
+                if (node instanceof QueueNode) {
+                    node.clearGanttHistory();
+                }
             }
             _runLoop() {
                 if (this.paused || !this.running) return;
