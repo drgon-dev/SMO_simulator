@@ -260,6 +260,7 @@
             padding: 2px 8px;
             border-radius: 10px;
             background: #2a2a3c;
+            color: #fff;
         }
         #status-bar {
             padding: 4px 14px;
@@ -349,9 +350,8 @@
                 <div class="chart-box"><canvas id="chart5"></canvas></div>
             </div>
             <div id="gantt-panel" class="tab-pane">
-                <div class="chart-title">Состояние каналов и очередь</div>
                 <div class="gantt-canvas-container">
-                    <canvas id="ganttCanvas" width="600" height="300" style="width:100%; height:300px; background:#1e1e2e;"></canvas>
+                    <canvas id="ganttCanvas" width="600" height="300" style="width:100%; height:600px; background:#1e1e2e;"></canvas>
                 </div>
                 <div class="gantt-legend">
                     <span style="background:#4ec9b0;">&nbsp;Занят канал&nbsp;</span>
@@ -1525,14 +1525,13 @@
                 }
 
                 // Размер окна отображения (последние 100 ед. времени)
-                const windowSize = 100;
+                const windowSize = 1000;
                 let startTime = Math.max(0, currentTime - windowSize);
                 let endTime = currentTime;
 
                 // Фильтруем события, попадающие в окно
                 let events = allEvents.filter(e => e.time >= startTime && e.time <= endTime);
                 if (events.length === 0 && allEvents.length > 0) {
-                    // Если нет событий в окне — показываем последние события
                     const lastEventTime = Math.max(...allEvents.map(e => e.time));
                     startTime = Math.max(0, lastEventTime - windowSize);
                     endTime = Math.max(lastEventTime, currentTime);
@@ -1542,6 +1541,14 @@
                     ctx.fillStyle = '#aaa';
                     ctx.fillText('Нет событий в текущем окне', 20, 40);
                     return;
+                }
+
+                // Вычисляем начальную длину очереди в момент startTime
+                let initialQueueCount = 0;
+                for (const ev of allEvents) {
+                    if (ev.time > startTime) break;
+                    if (ev.type === 'queue_enter') initialQueueCount++;
+                    else if (ev.type === 'queue_exit') initialQueueCount--;
                 }
 
                 const timeRange = endTime - startTime;
@@ -1598,12 +1605,12 @@
                     }
                 }
 
-                // Очередь (ступенчатый график)
+                // Очередь (ступенчатый график с учётом начальной длины)
                 const queueEvents = events.filter(e => e.type === 'queue_enter' || e.type === 'queue_exit');
                 queueEvents.sort((a,b) => a.time - b.time);
-                let queueCount = 0;
+                let queueCount = initialQueueCount;
                 let lastTime = startTime;
-                let lastCount = 0;
+                let lastCount = queueCount;
                 for (let ev of queueEvents) {
                     const x1 = timeToX(lastTime);
                     const x2 = timeToX(ev.time);
