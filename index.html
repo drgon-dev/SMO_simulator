@@ -118,15 +118,58 @@
             width: 100%;
             height: 100%;
         }
+        /* Вкладки правой панели */
         #right-panel {
-            width: 600px;
-            background: var(--panel);
-            border-left: 1px solid var(--border);
+            width: 40%;
+            min-width: 280px;
+            max-width: 60%;
             display: flex;
             flex-direction: column;
-            overflow-y: auto;
+            overflow: hidden;
+        }
+        .tab-header {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            background: var(--panel);
             flex-shrink: 0;
-            gap: 0;
+        }
+        .tab-button {
+            flex: 1;
+            text-align: center;
+            padding: 10px 0;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text2);
+            cursor: pointer;
+            transition: 0.1s;
+            background: none;
+            border: none;
+        }
+        .tab-button:hover {
+            background: var(--btn-hover);
+            color: var(--text);
+        }
+        .tab-button.active {
+            color: var(--accent);
+            border-bottom: 2px solid var(--accent);
+            background: transparent;
+        }
+        .tab-pane {
+            display: none;
+            flex: 1;
+            overflow-y: auto;
+            flex-direction: column;
+        }
+        .tab-pane.active-pane {
+            display: flex;
+        }
+        #props-content {
+            gap: 8px;
+            padding: 10px 14px;
+        }
+        #charts-panel {
+            gap: 8px;
+            padding: 8px 10px;
         }
         #right-panel h3 {
             padding: 12px 14px 8px;
@@ -136,13 +179,6 @@
             letter-spacing: 0.5px;
             border-bottom: 1px solid var(--border);
             margin: 0;
-            flex-shrink: 0;
-        }
-        #props-content {
-            padding: 10px 14px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
             flex-shrink: 0;
         }
         #props-content label {
@@ -182,22 +218,12 @@
             text-align: center;
             font-size: 13px;
         }
-        #charts-panel {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-            gap: 8px;
-            padding: 8px 10px;
-            min-height: 200px;
-            border-top: 1px solid var(--border);
-        }
         #charts-panel .chart-box {
             background: #1a1a28;
             border-radius: 6px;
             padding: 6px;
             flex-shrink: 0;
-            height: 180px;
+            height: 250px;
             position: relative;
         }
         #charts-panel .chart-box canvas {
@@ -282,11 +308,14 @@
             <canvas id="graphCanvas"></canvas>
         </div>
         <div id="right-panel">
-            <h3>🔍 Свойства</h3>
-            <div id="props-content">
+            <div class="tab-header">
+                <div class="tab-button active" data-tab="props">🔍 Свойства</div>
+                <div class="tab-button" data-tab="charts">📊 Графики</div>
+            </div>
+            <div id="props-content" class="tab-pane active-pane">
                 <div id="no-select">Выберите узел или соединение</div>
             </div>
-            <div id="charts-panel">
+            <div id="charts-panel" class="tab-pane">
                 <div class="chart-title">Графики для выбранной очереди</div>
                 <div class="chart-box"><canvas id="chart1"></canvas></div>
                 <div class="chart-box"><canvas id="chart2"></canvas></div>
@@ -2004,6 +2033,33 @@
             console.log('Перетаскивайте от выходного порта (оранжевый) к входному (зелёный) для создания соединений.');
             console.log('Выберите очередь и запустите симуляцию для просмотра графиков в реальном времени.');
         });
+
+        // Переключение вкладок в правой панели
+        function initTabs() {
+            const tabs = document.querySelectorAll('.tab-button');
+            const panes = {
+                props: document.getElementById('props-content'),
+                charts: document.getElementById('charts-panel')
+            };
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const targetTab = tab.getAttribute('data-tab');
+                    if (!targetTab) return;
+                    // Деактивировать все кнопки и панели
+                    tabs.forEach(t => t.classList.remove('active'));
+                    Object.values(panes).forEach(pane => pane.classList.remove('active-pane'));
+                    // Активировать выбранное
+                    tab.classList.add('active');
+                    if (targetTab === 'props') panes.props.classList.add('active-pane');
+                    if (targetTab === 'charts') panes.charts.classList.add('active-pane');
+                });
+            });
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initTabs);
+        } else {
+            initTabs();
+        }
     </script>
 </body>
 </html>
