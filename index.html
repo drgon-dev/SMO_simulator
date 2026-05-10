@@ -488,10 +488,6 @@
                 this.lastQueueLength = 0;
                 this.lastQueueChangeTime = 0;
                 this.history = []; // snapshots for charts
-
-                if (this.selectedElement instanceof QueueNode) {
-                    this.chartsManager.updateGanttForNode(this.selectedElement, this.currentTime);
-                }
             }
             initChannelTracking(currentTime, numBusy) {
                 this.lastChannelState = numBusy;
@@ -1520,22 +1516,39 @@
                 canvas.width = width;
                 canvas.height = height;
 
-                const events = node.getGanttData();
-                if (events.length === 0) {
+                const allEvents = node.getGanttData();
+                if (allEvents.length === 0) {
                     ctx.fillStyle = '#aaa';
                     ctx.font = '12px sans-serif';
                     ctx.fillText('Нет данных для отображения. Запустите симуляцию.', 20, 40);
                     return;
                 }
 
-                const startTime = Math.min(...events.map(e => e.time), 0);
-                let endTime = Math.max(...events.map(e => e.time), currentTime);
-                if (endTime === startTime) endTime = startTime + 1;
+                // Размер окна отображения (последние 100 ед. времени)
+                const windowSize = 100;
+                let startTime = Math.max(0, currentTime - windowSize);
+                let endTime = currentTime;
+
+                // Фильтруем события, попадающие в окно
+                let events = allEvents.filter(e => e.time >= startTime && e.time <= endTime);
+                if (events.length === 0 && allEvents.length > 0) {
+                    // Если нет событий в окне — показываем последние события
+                    const lastEventTime = Math.max(...allEvents.map(e => e.time));
+                    startTime = Math.max(0, lastEventTime - windowSize);
+                    endTime = Math.max(lastEventTime, currentTime);
+                    events = allEvents.filter(e => e.time >= startTime && e.time <= endTime);
+                }
+                if (events.length === 0) {
+                    ctx.fillStyle = '#aaa';
+                    ctx.fillText('Нет событий в текущем окне', 20, 40);
+                    return;
+                }
+
                 const timeRange = endTime - startTime;
+                if (timeRange <= 0) return;
 
                 const channels = node.numChannels;
-                const rowHeight = (height - 60) / (channels + 2); // очередь + каналы + строка выхода? упростим
-                const rowQueue = channels + 1; // последняя строка - очередь
+                const rowHeight = (height - 60) / (channels + 2);
                 const yOffset = 40;
 
                 // Фон
@@ -1543,7 +1556,7 @@
                 ctx.fillStyle = '#1e1e2e';
                 ctx.fillRect(0, 0, width, height);
 
-                // Рисуем горизонтальные строки
+                // Горизонтальные линии и подписи
                 ctx.strokeStyle = '#3a3a50';
                 ctx.lineWidth = 0.5;
                 for (let i = 0; i <= channels + 1; i++) {
@@ -1552,7 +1565,6 @@
                     ctx.moveTo(40, y);
                     ctx.lineTo(width - 20, y);
                     ctx.stroke();
-                    // Подписи
                     ctx.fillStyle = '#b0b0c0';
                     ctx.font = '10px sans-serif';
                     if (i < channels) ctx.fillText(`Канал ${i+1}`, 5, y + rowHeight/2 + 3);
@@ -1560,13 +1572,11 @@
                     else ctx.fillText('Выход', 5, y + rowHeight/2 + 3);
                 }
 
-                // Функция преобразования времени в X
                 const timeToX = (t) => 40 + (t - startTime) / timeRange * (width - 60);
 
-                // Отрисовка занятости каналов
+                // Занятость каналов
                 for (let ch = 0; ch < channels; ch++) {
                     const y = yOffset + ch * rowHeight;
-                    // Ищем интервалы service_start/service_end для этого канала
                     let intervals = [];
                     let start = null;
                     for (let ev of events) {
@@ -1581,24 +1591,26 @@
                     for (let int of intervals) {
                         const x1 = timeToX(int.start);
                         const x2 = timeToX(int.end);
-                        ctx.fillStyle = '#4ec9b0';
-                        ctx.fillRect(x1, y + 2, x2 - x1, rowHeight - 4);
+                        if (x2 > x1) {
+                            ctx.fillStyle = '#4ec9b0';
+                            ctx.fillRect(x1, y + 2, x2 - x1, rowHeight - 4);
+                        }
                     }
                 }
 
-                // Очередь: показываем как ступенчатый график
+                // Очередь (ступенчатый график)
                 const queueEvents = events.filter(e => e.type === 'queue_enter' || e.type === 'queue_exit');
+                queueEvents.sort((a,b) => a.time - b.time);
                 let queueCount = 0;
                 let lastTime = startTime;
                 let lastCount = 0;
-                // Отсортируем по времени
-                queueEvents.sort((a,b) => a.time - b.time);
                 for (let ev of queueEvents) {
                     const x1 = timeToX(lastTime);
                     const x2 = timeToX(ev.time);
                     if (x2 > x1 && lastCount > 0) {
                         const y = yOffset + channels * rowHeight;
-                        const barHeight = Math.min(rowHeight - 4, (lastCount / (node.maxQueueLength || 20)) * (rowHeight-4));
+                        const maxLen = node.maxQueueLength || 20;
+                        const barHeight = Math.min(rowHeight - 4, (lastCount / maxLen) * (rowHeight - 4));
                         ctx.fillStyle = '#6c9cf5';
                         ctx.fillRect(x1, y + rowHeight - barHeight - 2, x2 - x1, barHeight);
                     }
@@ -1607,17 +1619,18 @@
                     lastTime = ev.time;
                     lastCount = queueCount;
                 }
-                // Остаток до текущего времени
+                // Остаток до endTime
                 const x1 = timeToX(lastTime);
-                const x2 = timeToX(currentTime);
+                const x2 = timeToX(endTime);
                 if (x2 > x1 && lastCount > 0) {
                     const y = yOffset + channels * rowHeight;
-                    const barHeight = Math.min(rowHeight - 4, (lastCount / (node.maxQueueLength || 20)) * (rowHeight-4));
+                    const maxLen = node.maxQueueLength || 20;
+                    const barHeight = Math.min(rowHeight - 4, (lastCount / maxLen) * (rowHeight - 4));
                     ctx.fillStyle = '#6c9cf5';
                     ctx.fillRect(x1, y + rowHeight - barHeight - 2, x2 - x1, barHeight);
                 }
 
-                // Отметки выхода (departure)
+                // Отметки выхода заявок
                 const departures = events.filter(e => e.type === 'departure');
                 for (let d of departures) {
                     const x = timeToX(d.time);
@@ -1636,9 +1649,12 @@
                 // Ось времени
                 ctx.fillStyle = '#888';
                 ctx.font = '9px sans-serif';
-                for (let t = Math.floor(startTime); t <= endTime; t += Math.max(1, (endTime-startTime)/8)) {
+                const step = Math.max(1, (endTime - startTime) / 8);
+                for (let t = Math.floor(startTime); t <= endTime; t += step) {
                     const x = timeToX(t);
-                    ctx.fillText(t.toFixed(1), x-5, yOffset + (channels+1)*rowHeight + 15);
+                    if (x >= 40 && x <= width - 20) {
+                        ctx.fillText(t.toFixed(1), x-5, yOffset + (channels+1)*rowHeight + 15);
+                    }
                 }
             }
         }
