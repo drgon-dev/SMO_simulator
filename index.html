@@ -299,6 +299,75 @@
                 flex-shrink: 0;
             }
         }
+        /* Модальное окно помощи */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.6);
+            backdrop-filter: blur(3px);
+        }
+        .modal-content {
+            background-color: var(--panel);
+            margin: 10% auto;
+            padding: 0;
+            border-radius: 12px;
+            width: 80%;
+            max-width: 600px;
+            border: 1px solid var(--border);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+            animation: modalFadeIn 0.2s;
+        }
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            background: var(--btn-bg);
+            border-radius: 12px 12px 0 0;
+        }
+        .modal-header h3 {
+            margin: 0;
+            color: var(--accent);
+        }
+        .modal-close {
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: var(--text2);
+            transition: 0.1s;
+        }
+        .modal-close:hover {
+            color: var(--danger);
+        }
+        .modal-body {
+            padding: 16px;
+            max-height: 60vh;
+            overflow-y: auto;
+            line-height: 1.5;
+        }
+        .modal-body h4 {
+            margin-top: 12px;
+            margin-bottom: 6px;
+            color: var(--accent2);
+        }
+        .modal-body p {
+            margin-bottom: 10px;
+            font-size: 13px;
+        }
+        .modal-body strong {
+            color: var(--warn);
+        }
     </style>
 </head>
 <body>
@@ -325,6 +394,7 @@
         <button id="btn-save" title="Сохранить топологию">💾 Сохранить</button>
         <button id="btn-load" title="Загрузить топологию">📂 Загрузить</button>
         <input type="file" id="load-file" accept=".json" style="display:none">
+        <button id="btn-help" title="Помощь">❓ Помощь</button>
         <span style="font-size:11px;color:var(--text2);margin-left:auto;">Del — удалить</span>
     </div>
 
@@ -361,7 +431,39 @@
             </div>
         </div>
     </div>
-
+    <!-- Модальное окно помощи -->
+    <div id="help-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-close">&times;</span>
+                <h3>📘 Справка по симулятору СМО</h3>
+            </div>
+            <div class="modal-body">
+                <h4>➕ Добавление узлов</h4>
+                <p>Нажмите на кнопки <strong>Источник</strong>, <strong>FIFO</strong>, <strong>LIFO</strong>, <strong>SF</strong> или <strong>Сток</strong>, затем кликните на свободное место холста для размещения узла.</p>
+                <h4>🔗 Создание соединений</h4>
+                <p>Перетащите мышью от <span style="color:#ffaa00;">оранжевого кружка (выход)</span> одного узла к <span style="color:#66cc66;">зелёному кружку (вход)</span> другого узла. Вес соединения (вероятность маршрутизации) можно изменить в свойствах соединения.</p>
+                <h4>⚙️ Управление симуляцией</h4>
+                <p>▶ <strong>Старт</strong> — запуск симуляции (при первом запуске происходит инициализация).<br>
+                    ⏸ <strong>Пауза</strong> — приостановка.<br>
+                    ↺ <strong>Сброс</strong> — сброс времени и статистики.<br>
+                    <strong>Скорость</strong> — ускорение модельного времени (1×, 10×, 100×, Макс).</p>
+                <h4>✏️ Редактирование свойств</h4>
+                <p>Кликните на узел или соединение — справа откроется панель свойств. Изменяйте параметры (интенсивность, время обслуживания, дисциплину, количество каналов и т.д.).</p>
+                <h4>📊 Просмотр результатов</h4>
+                <p>Выберите <strong>очередь</strong>, чтобы увидеть:<br>
+                    - <strong>Графики</strong> (вероятности, пропускная способность, загрузка каналов, длины очередей, времена).<br>
+                    - <strong>Диаграмму Ганта</strong> (состояние каналов, динамика очереди и моменты выхода заявок).<br>
+                    Выберите <strong>сток</strong>, чтобы увидеть общие графики всей системы.</p>
+                <h4>💾 Сохранение и загрузка</h4>
+                <p>💾 <strong>Сохранить</strong> — сохранить текущую топологию (узлы и связи) в JSON-файл.<br>
+                    📂 <strong>Загрузить</strong> — загрузить ранее сохранённую топологию.</p>
+                <h4>🗑️ Удаление</h4>
+                <p>Выделите узел или соединение и нажмите <strong>Delete</strong> или <strong>Backspace</strong>.</p>
+                <p><em>💡 Подсказка: для панорамирования холста используйте перетаскивание с зажатой левой кнопкой мыши (на пустом месте). Для масштабирования — колёсико мыши.</em></p>
+            </div>
+        </div>
+    </div>
     <div id="status-bar">
         <span>🕐 Модельное время: <b id="stime">0.000</b></span>
         <span>📊 Событий обработано: <b id="sevents">0</b></span>
@@ -612,6 +714,56 @@
             }
         }
 
+        // ==================== SYSTEM STATISTICS COLLECTOR ====================
+        class SystemStatsCollector {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.N = 0;           // всего поступило в систему
+                this.Nobs = 0;        // обслужено (достигло стока)
+                this.Notk = 0;        // отказов (потеряно в очередях)
+                this.totalSystemTime = 0; // суммарное время пребывания в системе
+                this.history = [];     // снимки для графиков
+                this.lastTime = 0;
+                this.lastSnapshotTime = 0;
+            }
+            recordArrival(currentTime) {
+                this.N++;
+            }
+            recordRejection(currentTime) {
+                this.Notk++;
+            }
+            recordServiceComplete(currentTime, job) {
+                this.Nobs++;
+                const systemTime = currentTime - job.creationTime;
+                this.totalSystemTime += systemTime;
+            }
+            getStats(currentTime) {
+                const Tn = Math.max(currentTime, 1e-9);
+                const Pobs = this.N > 0 ? this.Nobs / this.N * 2 : 0;
+                const A = this.Nobs / Tn;
+                const Potk = this.N > 0 ? this.Notk / this.N : 0;
+                const TavgSystem = this.Nobs > 0 ? this.totalSystemTime / this.Nobs : 0;
+                return {
+                    Tn,
+                    N: this.N,
+                    Nobs: this.Nobs,
+                    Notk: this.Notk,
+                    Pobs,
+                    A,
+                    Potk,
+                    TavgSystem,
+                };
+            }
+            snapshot(currentTime) {
+                const s = this.getStats(currentTime);
+                this.history.push({ time: currentTime, ...s });
+                if (this.history.length > 5000) this.history.shift();
+                return s;
+            }
+        }
+
         // ==================== NODE CLASSES ====================
         class BaseNode {
             constructor(id, type, x, y) {
@@ -851,6 +1003,7 @@
                 this.nodes = [];
                 this.connections = [];
                 this._rafId = null;
+                this.systemStats = new SystemStatsCollector();
             }
             init(nodes, connections) {
                 this.nodes = nodes;
@@ -876,6 +1029,7 @@
                     }
                     if (node instanceof SinkNode) {
                         node.receivedCount = 0;
+                        this.systemStats.reset();
                     }
                     if (node instanceof QueueNode) {
                         node.clearGanttHistory();
@@ -893,6 +1047,7 @@
                     }
                 }
                 this._updateUI();
+                this.systemStats.reset();
             }
             start() {
                 if (this.running && !this.paused) return;
@@ -1012,12 +1167,14 @@
             _handleArrival(evt) {
                 const { job, targetNode } = evt.data;
                 job.arrivalTime = this.currentTime;
+                this.systemStats.recordArrival(this.currentTime);
                 if (targetNode instanceof QueueNode) {
                     const q = targetNode;
                     q.stats.recordArrival(this.currentTime);
                     const maxQ = q.maxQueueLength;
                     if (maxQ > 0 && q.waitingQueue.length >= maxQ) {
                         q.stats.recordRejection(this.currentTime);
+                        this.systemStats.recordRejection(this.currentTime);
                         return;
                     }
                     // Generate service time
@@ -1031,6 +1188,7 @@
                     this._tryStartService(q);
                 } else if (targetNode instanceof SinkNode) {
                     targetNode.receivedCount++;
+                    this.systemStats.recordServiceComplete(this.currentTime, job);
                 }
             }
             _tryStartService(q) {
@@ -1422,6 +1580,44 @@
                     });
                 });
             }
+            updateForSystem(node, currentTime) {
+                if (!(node instanceof SinkNode)) return;
+                const stats = this.simulation?.systemStats;
+            }
+
+            updateForSink(sink, currentTime, systemStats) {
+                if (!(sink instanceof SinkNode)) return;
+                const hist = systemStats.history;
+                if (hist.length === 0) systemStats.snapshot(currentTime);
+                const times = hist.map(h => h.time);
+
+                // Chart 1: Pobs, Potk
+                this._updateChart('chart1', [
+                    { label: 'Pобс (система)', data: hist.map(h => h.Pobs), color: this.colors[0], borderWidth: 2 },
+                    { label: 'Pотк (система)', data: hist.map(h => h.Potk), color: this.colors[1], borderWidth: 2, borderDash: [5,3] },
+                ], times, 'Вероятность');
+
+                // Chart 2: Throughput A
+                this._updateChart('chart2', [
+                    { label: 'A (пропускная способность системы)', data: hist.map(h => h.A), color: this.colors[2], borderWidth: 2 },
+                ], times, 'Заявок/ед.времени');
+
+                // Chart 3: для системы нет вероятностей занятости каналов – скрыть или показать сообщение
+                this._updateChart('chart3', [
+                    { label: 'Нет данных для системы', data: times.map(() => 0), color: '#888', borderWidth: 1, borderDash: [2,2] },
+                ], times, 'Не применимо');
+
+                // Chart 4: N в системе (среднее число заявок, включая обслуживаемые? Упростим: Nsist = A * TavgSystem)
+                this._updateChart('chart4', [
+                    { label: 'Nсист (среднее число заявок в системе)', data: hist.map(h => h.A * h.TavgSystem), color: this.colors[4], borderWidth: 2 },
+                ], times, 'Количество заявок');
+
+                // Chart 5: TavgSystem
+                this._updateChart('chart5', [
+                    { label: 'Tср.сист (система)', data: hist.map(h => h.TavgSystem), color: this.colors[7], borderWidth: 2 },
+                ], times, 'Время (у.е.)');
+            }
+
             updateForNode(node, currentTime) {
                 if (!(node instanceof QueueNode)) {
                     this._clearAll();
@@ -1693,10 +1889,15 @@
             }
             _initSimCallbacks() {
                 this.simulation.onChartUpdate = (time) => {
-                    if (this.selectedElement instanceof QueueNode) {
-                        this.selectedElement.stats.snapshot(time);
-                        this.chartsManager.updateForNode(this.selectedElement, time);
-                        this.chartsManager.updateGanttForNode(this.selectedElement, time);
+                    const el = this.selectedElement;
+                    if (el instanceof QueueNode) {
+                        el.stats.snapshot(time);
+                        this.chartsManager.updateForNode(el, time);
+                        this.chartsManager.updateGanttForNode(el, time);
+                    }
+                    else if (el instanceof SinkNode) {
+                        this.simulation.systemStats.snapshot(time);
+                        this.chartsManager.updateForSink(el, time, this.simulation.systemStats);
                     }
                 };
                 this.simulation.onStateChange = (state) => {
@@ -2111,10 +2312,15 @@
                 });
             }
             _sinkPropsHTML(node) {
+                const sys = this.simulation.systemStats;
+                const avgTime = sys.Nobs > 0 ? (sys.totalSystemTime / sys.Nobs).toFixed(3) : 0;
                 return `
-                <label>Название: <input id="prop-name" value="${this._esc(node.name)}"></label>
-                <div style="font-size:10px;color:var(--text2)">Принято заявок: ${node.receivedCount}</div>
-              `;
+                    <label>Название: <input id="prop-name" value="${this._esc(node.name)}"></label>
+                    <div style="font-size:10px;color:var(--text2)">Принято заявок: ${node.receivedCount}</div>
+                    <div style="font-size:10px;color:var(--text2)">Всего поступило в систему: ${sys.N}</div>
+                    <div style="font-size:10px;color:var(--text2)">Отказов: ${sys.Notk}</div>
+                    <div style="font-size:10px;color:var(--text2)">Среднее время в системе: ${avgTime}</div>
+                `;
             }
             _bindSinkProps(node, container) {
                 container.querySelector('#prop-name').addEventListener('input', () => {
@@ -2139,17 +2345,32 @@
             _esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g,
                     '&quot;'); }
             _updateChartsForSelection() {
-                if (this.selectedElement instanceof QueueNode && this.simulation.running) {
+                const el = this.selectedElement;
+                if (el instanceof QueueNode) {
                     const time = this.simulation.currentTime;
-                    this.selectedElement.stats.snapshot(time);
-                    this.chartsManager.updateForNode(this.selectedElement, time);
-                    this.chartsManager.updateGanttForNode(this.selectedElement, time);
-                } else if (this.selectedElement instanceof QueueNode) {
-                    this.chartsManager.updateForNode(this.selectedElement, this.simulation.currentTime || 0);
-                    this.chartsManager.updateGanttForNode(this.selectedElement, this.simulation.currentTime || 0);
-                } else {
+                    if (this.simulation.running) {
+                        el.stats.snapshot(time);
+                    }
+                    this.chartsManager.updateForNode(el, time);
+                    this.chartsManager.updateGanttForNode(el, time);
+                }
+                else if (el instanceof SinkNode) {
+                    const time = this.simulation.currentTime;
+                    if (this.simulation.running) {
+                        this.simulation.systemStats.snapshot(time);
+                    }
+                    this.chartsManager.updateForSink(el, time, this.simulation.systemStats);
+                    // Очищаем Гант (неприменимо)
+                    const gCanvas = document.getElementById('ganttCanvas');
+                    if (gCanvas) {
+                        const ctx = gCanvas.getContext('2d');
+                        ctx.clearRect(0, 0, gCanvas.width, gCanvas.height);
+                        ctx.fillStyle = '#1e1e2e';
+                        ctx.fillRect(0, 0, gCanvas.width, gCanvas.height);
+                    }
+                }
+                else {
                     this.chartsManager.clearAll();
-                    // Очистить canvas Ганта
                     const gCanvas = document.getElementById('ganttCanvas');
                     if (gCanvas) {
                         const ctx = gCanvas.getContext('2d');
@@ -2237,6 +2458,7 @@
                         node.clearGanttHistory();
                     }
                 }
+                this.simulation.systemStats.reset();
                 this.nextId = data.nextId || (Math.max(...this.nodes.map(n => n.id), 0) + 1);
                 this.connections = [];
                 for (const cd of data.connections) {
@@ -2300,6 +2522,30 @@
             document.addEventListener('DOMContentLoaded', initTabs);
         } else {
             initTabs();
+        }
+        // Модальное окно помощи
+        const helpBtn = document.getElementById('btn-help');
+        const modal = document.getElementById('help-modal');
+        const closeBtn = document.querySelector('.modal-close');
+
+        if (helpBtn && modal && closeBtn) {
+            helpBtn.addEventListener('click', () => {
+                modal.style.display = 'block';
+            });
+            closeBtn.addEventListener('click', () => {
+                modal.style.display = 'none';
+            });
+            window.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+            // Закрытие по Escape
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && modal.style.display === 'block') {
+                    modal.style.display = 'none';
+                }
+            });
         }
     </script>
 </body>
