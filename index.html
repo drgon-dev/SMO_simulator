@@ -2359,7 +2359,6 @@
                         this.simulation.systemStats.snapshot(time);
                     }
                     this.chartsManager.updateForSink(el, time, this.simulation.systemStats);
-                    // Очищаем Гант (неприменимо)
                     const gCanvas = document.getElementById('ganttCanvas');
                     if (gCanvas) {
                         const ctx = gCanvas.getContext('2d');
