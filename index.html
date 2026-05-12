@@ -588,7 +588,7 @@
                 this.lastChannelChangeTime = 0;
                 this.lastQueueLength = 0;
                 this.lastQueueChangeTime = 0;
-                this.history = []; // snapshots for charts
+                this.history = [];
             }
             initChannelTracking(currentTime, numBusy) {
                 this.lastChannelState = numBusy;
@@ -617,7 +617,7 @@
             recordRejection(currentTime) {
                 this.Notk++;
                 this._updateQueueLength(currentTime, this.lastQueueLength);
-                this.N--;
+
             }
             recordServiceStart(currentTime, job, queueLength, numBusyBefore) {
                 const newBusy = numBusyBefore + 1;
@@ -740,7 +740,7 @@
             }
             getStats(currentTime) {
                 const Tn = Math.max(currentTime, 1e-9);
-                const Pobs = this.N > 0 ? this.Nobs / this.N * 2 : 0;
+                const Pobs = this.N > 0 ? this.Nobs / this.N : 0;
                 const A = this.Nobs / Tn;
                 const Potk = this.N > 0 ? this.Notk / this.N : 0;
                 const TavgSystem = this.Nobs > 0 ? this.totalSystemTime / this.Nobs : 0;
@@ -1074,9 +1074,14 @@
                 this.init(this.nodes, this.connections);
                 this._updateUI();
                 if (this.onStateChange) this.onStateChange('stopped');
-                if (node instanceof QueueNode) {
-                    node.clearGanttHistory();
+
+                // Очистка истории Ганта для всех очередей
+                for (const node of this.nodes) {
+                    if (node instanceof QueueNode) {
+                        node.clearGanttHistory();
+                    }
                 }
+                this.systemStats.reset();   // было просто systemStats.reset()
             }
             _runLoop() {
                 if (this.paused || !this.running) return;
@@ -1134,10 +1139,14 @@
             _handleGenerate(evt) {
                 const source = evt.data.source;
                 const job = evt.data.job;
-                // Find outgoing connections
+
+                // Регистрируем рождение заявки в системе
+                this.systemStats.recordArrival(this.currentTime);
+
                 const outConns = this.connections.filter(c => c.fromNode.id === source.id);
                 if (outConns.length === 0) {
-                    // No connections, job is lost
+                    // Заявка потеряна на источнике
+                    this.systemStats.recordRejection(this.currentTime);
                 } else if (outConns.length === 1) {
                     this.eventHeap.push(new SimEvent(this.currentTime, 'ARRIVAL', {
                         job,
@@ -1145,7 +1154,7 @@
                         fromNode: source,
                     }, 2));
                 } else {
-                    // Probabilistic routing
+                    // вероятностная маршрутизация
                     const totalWeight = outConns.reduce((s, c) => s + c.weight, 0);
                     let r = source.prng.next() * totalWeight;
                     let chosen = outConns[0];
@@ -1159,14 +1168,14 @@
                         fromNode: source,
                     }, 2));
                 }
-                // Schedule next generation
+
+                // Планируем следующую генерацию
                 const nextEvt = source.scheduleNext(this.currentTime, this.eventHeap, this.jobIdCounter);
                 if (nextEvt) this.eventHeap.push(nextEvt);
             }
             _handleArrival(evt) {
                 const { job, targetNode } = evt.data;
                 job.arrivalTime = this.currentTime;
-                this.systemStats.recordArrival(this.currentTime);
                 if (targetNode instanceof QueueNode) {
                     const q = targetNode;
                     q.stats.recordArrival(this.currentTime);
