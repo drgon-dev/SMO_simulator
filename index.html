@@ -2172,6 +2172,30 @@
                 this.renderer.connections = this.connections;
                 this.simulation.connections = this.connections;
                 this.renderer.draw();
+                this.normalizeNodeWeights(fromNode);
+            }
+            normalizeNodeWeights(node) {
+                // Находим все соединения, исходящие из этого узла
+                const outConnections = this.connections.filter(c => c.fromNode === node);
+                if (outConnections.length === 0) return;
+
+                // Суммируем текущие веса
+                let totalWeight = outConnections.reduce((sum, c) => sum + c.weight, 0);
+
+                // Если сумма равна нулю (все веса обнулились), присваиваем равные веса
+                if (totalWeight === 0) {
+                    const equalWeight = 1 / outConnections.length;
+                    outConnections.forEach(c => c.weight = equalWeight);
+                    totalWeight = 1;
+                }
+
+                // Нормализуем: делим каждый вес на общую сумму
+                outConnections.forEach(c => {
+                    c.weight = c.weight / totalWeight;
+                });
+
+                // Перерисовываем холст, чтобы обновить отображение весов
+                this.renderer.draw();
             }
             _deleteSelected() {
                 if (!this.selectedElement) return;
@@ -2187,6 +2211,7 @@
                     const conn = this.selectedElement;
                     this.connections = this.connections.filter(c => c !== conn);
                     conn.fromNode.connectionsOut = conn.fromNode.connectionsOut.filter(c => c !== conn);
+                    this.normalizeNodeWeights(conn.fromNode);
                 }
                 this.selectedElement = null;
                 this.renderer.selectedElement = null;
@@ -2347,6 +2372,7 @@
                 container.querySelector('#prop-weight').addEventListener('input', () => {
                     conn.weight = Math.max(0.01, parseFloat(document.getElementById('prop-weight').value) ||
                         1);
+                    this.normalizeNodeWeights(conn.fromNode);
                     this.renderer.draw();
                 });
             }
@@ -2483,6 +2509,9 @@
                 this.renderer.connections = this.connections;
                 this.simulation.nodes = this.nodes;
                 this.simulation.connections = this.connections;
+                for (const node of this.nodes) {
+                    this.normalizeNodeWeights(node);
+                }
                 this._updatePropsPanel();
                 this.renderer.draw();
             }
