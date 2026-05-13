@@ -861,32 +861,62 @@
                 this.name = 'Очередь ' + discipline;
                 this.discipline = discipline;
                 this.numChannels = 1;
-                this.serviceDistribution = 'constant';
-                this.serviceConst = 1;
-                this.serviceMu = 1;
+                // Массив каналов: каждый элемент = { distribution, value }
+                this.channels = [];
+                this.initChannels(this.numChannels, 'constant', 1);
                 this.maxQueueLength = 0;
                 this.seed = 100 + id;
                 this.prng = new PRNG(this.seed);
                 this.waitingQueue = [];
                 this.busyChannels = 0;
                 this.stats = new StatisticsCollector();
-                this.ganttEvents = []; // { time, type, jobId, channelIndex? }
-                this.lastChannelStateChange = null;
-                this.lastQueueLengthChange = null;
+                this.ganttEvents = [];        // для диаграммы Ганта
                 this.inputPorts = ['in'];
                 this.outputPorts = ['out'];
-                this.lastStateTime = 0;
             }
-            generateServiceTime() {
-                switch (this.serviceDistribution) {
-                    case 'constant':
-                        return this.serviceConst;
-                    case 'exponential':
-                        return this.prng.exp(this.serviceMu);
-                    default:
-                        return 1;
+
+            // Инициализация каналов значениями по умолчанию
+            initChannels(count, defaultDist, defaultVal) {
+                this.channels = [];
+                for (let i = 0; i < count; i++) {
+                    this.channels.push({
+                        distribution: defaultDist,
+                        value: defaultVal
+                    });
                 }
             }
+
+            // Генерация времени обслуживания для конкретного канала
+            generateServiceTime(channelIndex) {
+                const ch = this.channels[channelIndex];
+                if (!ch) return 1;
+                if (ch.distribution === 'constant') {
+                    return ch.value;
+                } else { // exponential
+                    // value интерпретируется как среднее время обслуживания (1/μ)
+                    const mu = 1 / ch.value;
+                    return this.prng.exp(mu);
+                }
+            }
+
+            // Изменение количества каналов с сохранением настроек
+            setNumChannels(newCount) {
+                const old = this.channels;
+                const newChannels = [];
+                for (let i = 0; i < newCount; i++) {
+                    if (i < old.length) {
+                        newChannels.push({ ...old[i] });
+                    } else {
+                        const defaultDist = old.length ? old[old.length-1].distribution : 'constant';
+                        const defaultVal = old.length ? old[old.length-1].value : 1;
+                        newChannels.push({ distribution: defaultDist, value: defaultVal });
+                    }
+                }
+                this.channels = newChannels;
+                this.numChannels = newCount;
+            }
+
+            // Выбор следующей заявки согласно дисциплине очереди
             pickNextJob() {
                 if (this.waitingQueue.length === 0) return null;
                 switch (this.discipline) {
@@ -899,8 +929,10 @@
                         let minTime = this.waitingQueue[0].serviceTime ?? Infinity;
                         for (let i = 1; i < this.waitingQueue.length; i++) {
                             const st = this.waitingQueue[i].serviceTime ?? Infinity;
-                            if (st < minTime) { minTime = st;
-                                minIdx = i; }
+                            if (st < minTime) {
+                                minTime = st;
+                                minIdx = i;
+                            }
                         }
                         return this.waitingQueue.splice(minIdx, 1)[0];
                     }
@@ -908,36 +940,47 @@
                         return this.waitingQueue.shift();
                 }
             }
+
+            // ----- Методы для диаграммы Ганта -----
             recordGanttEvent(time, type, jobId = null, channelIndex = null) {
+                if (!this.ganttEvents) this.ganttEvents = [];
                 this.ganttEvents.push({ time, type, jobId, channelIndex });
-                // Ограничим количество, чтобы не переполнить память
+                // Ограничим размер, чтобы не переполнить память
                 if (this.ganttEvents.length > 5000) this.ganttEvents.shift();
             }
+
             clearGanttHistory() {
                 this.ganttEvents = [];
             }
+
             getGanttData() {
-                return this.ganttEvents.slice(); // копия
+                return this.ganttEvents ? this.ganttEvents.slice() : [];
             }
+
+            // ----- Сериализация -----
             toJSON() {
                 return {
                     ...super.toJSON(),
                     discipline: this.discipline,
                     numChannels: this.numChannels,
-                    serviceDistribution: this.serviceDistribution,
-                    serviceConst: this.serviceConst,
-                    serviceMu: this.serviceMu,
+                    channels: this.channels,
                     maxQueueLength: this.maxQueueLength,
                     seed: this.seed,
                 };
             }
+
             static fromJSON(data) {
                 const n = new QueueNode(data.id, data.x, data.y, data.discipline || 'FIFO');
                 n.name = data.name || ('Очередь ' + (data.discipline || 'FIFO'));
                 n.numChannels = data.numChannels || 1;
-                n.serviceDistribution = data.serviceDistribution || 'constant';
-                n.serviceConst = data.serviceConst || 1;
-                n.serviceMu = data.serviceMu || 1;
+                if (data.channels && Array.isArray(data.channels)) {
+                    n.channels = data.channels;
+                } else {
+                    // совместимость со старым форматом
+                    const oldDist = data.serviceDistribution || 'constant';
+                    const oldVal = oldDist === 'constant' ? (data.serviceConst || 1) : (data.serviceMu || 1);
+                    n.initChannels(n.numChannels, oldDist, oldVal);
+                }
                 n.maxQueueLength = data.maxQueueLength || 0;
                 n.seed = data.seed ?? (100 + data.id);
                 n.prng = new PRNG(n.seed);
@@ -1188,9 +1231,9 @@
                         return;
                     }
                     // Generate service time
-                    if (job.serviceTime === null) {
-                        job.serviceTime = q.generateServiceTime();
-                    }
+<!--                    if (job.serviceTime === null) {-->
+<!--                        job.serviceTime = q.generateServiceTime();-->
+<!--                    }-->
                     q.recordGanttEvent(this.currentTime, 'queue_enter', job.id);
                     q.waitingQueue.push(job);
                     q.stats._updateQueueLength(this.currentTime, q.waitingQueue.length);
@@ -1205,13 +1248,14 @@
                 while (q.busyChannels < q.numChannels && q.waitingQueue.length > 0) {
                     const job = q.pickNextJob();
                     if (!job) break;
-                    const channelIndex = q.busyChannels; // 0-индекс первого свободного
-                    q.recordGanttEvent(this.currentTime, 'service_start', job.id, channelIndex); // Запись выхода из очереди (заявка покидает очередь)
+                    const channelIndex = q.busyChannels;
+                    q.recordGanttEvent(this.currentTime, 'service_start', job.id, channelIndex);
                     q.recordGanttEvent(this.currentTime, 'queue_exit', job.id);
                     const prevBusy = q.busyChannels;
                     q.busyChannels++;
                     q.stats.recordServiceStart(this.currentTime, job, q.waitingQueue.length, prevBusy);
-                    const serviceTime = job.serviceTime ?? q.generateServiceTime();
+                    // Генерируем время обслуживания для конкретного канала
+                    const serviceTime = job.serviceTime ?? q.generateServiceTime(channelIndex);
                     job.serviceTime = serviceTime;
                     this.eventHeap.push(new SimEvent(this.currentTime + serviceTime, 'SERVICE_COMPLETE', {
                         queue: q,
@@ -2320,54 +2364,92 @@
                 });
             }
             _queuePropsHTML(node) {
+                let channelsHtml = '<label>Количество каналов: <input id="prop-channels" type="number" min="1" value="'+node.numChannels+'"></label>';
+                channelsHtml += '<div style="margin-top:8px;"><strong>Настройки каналов</strong><div id="channels-container">';
+                for (let i = 0; i < node.channels.length; i++) {
+                    const ch = node.channels[i];
+                    channelsHtml += `
+                        <div class="channel-row" data-channel="${i}" style="border:1px solid var(--border); border-radius:4px; padding:6px; margin-bottom:6px;">
+                            <div style="font-size:12px; font-weight:bold;">Канал ${i+1}</div>
+                            <label>Распределение:
+                                <select class="ch-dist" data-ch="${i}">
+                                    <option value="constant" ${ch.distribution==='constant'?'selected':''}>Константное</option>
+                                    <option value="exponential" ${ch.distribution==='exponential'?'selected':''}>Экспоненциальное</option>
+                                </select>
+                            </label>
+                            <label class="ch-val-label">${ch.distribution==='constant'?'Время обслуживания':'Среднее время'}:
+                                <input class="ch-val" data-ch="${i}" type="number" step="0.1" min="0.01" value="${ch.value}">
+                            </label>
+                        </div>
+                    `;
+                }
+                channelsHtml += '</div></div>';
                 return `
-                <label>Название: <input id="prop-name" value="${this._esc(node.name)}"></label>
-                <label>Дисциплина:
-                    <select id="prop-disc">
-                        <option value="FIFO" ${node.discipline==='FIFO'?'selected':''}>FIFO</option>
-                        <option value="LIFO" ${node.discipline==='LIFO'?'selected':''}>LIFO</option>
-                        <option value="SF" ${node.discipline==='SF'?'selected':''}>SF (Shortest First)</option>
-                    </select>
-                </label>
-                <label>Каналов (C): <input id="prop-channels" type="number" min="1" value="${node.numChannels}"></label>
-                <label>Распределение обслуживания:
-                    <select id="prop-servdist">
-                        <option value="constant" ${node.serviceDistribution==='constant'?'selected':''}>Фиксированное</option>
-                        <option value="exponential" ${node.serviceDistribution==='exponential'?'selected':''}>Экспоненциальное</option>
-                    </select>
-                </label>
-                <label id="prop-servconst-label" style="${node.serviceDistribution!=='constant'?'display:none':''}">Время обслуживания: <input id="prop-servconst" type="number" step="0.1" min="0.01" value="${node.serviceConst}"></label>
-                <label id="prop-servmu-label" style="${node.serviceDistribution!=='exponential'?'display:none':''}">Среднее (1/μ): <input id="prop-servmu" type="number" step="0.1" min="0.01" value="${node.serviceMu}"></label>
-                <label>Макс. длина очереди (0=без огр.): <input id="prop-maxq" type="number" min="0" value="${node.maxQueueLength}"></label>
-                <label>Seed: <input id="prop-seed" type="number" min="0" value="${node.seed}"></label>
-                <div style="font-size:10px;color:var(--text2)">В очереди: ${node.waitingQueue.length} | Занято каналов: ${node.busyChannels}/${node.numChannels}</div>
-              `;
+                    <label>Название: <input id="prop-name" value="${this._esc(node.name)}"></label>
+                    <label>Дисциплина:
+                        <select id="prop-disc">
+                            <option value="FIFO" ${node.discipline==='FIFO'?'selected':''}>FIFO</option>
+                            <option value="LIFO" ${node.discipline==='LIFO'?'selected':''}>LIFO</option>
+                            <option value="SF" ${node.discipline==='SF'?'selected':''}>SF (Shortest First)</option>
+                        </select>
+                    </label>
+                    ${channelsHtml}
+                    <label>Макс. длина очереди (0=без огр.): <input id="prop-maxq" type="number" min="0" value="${node.maxQueueLength}"></label>
+                    <label>Seed: <input id="prop-seed" type="number" min="0" value="${node.seed}"></label>
+                    <div style="font-size:10px;color:var(--text2)">В очереди: ${node.waitingQueue.length} | Занято каналов: ${node.busyChannels}/${node.numChannels}</div>
+                `;
             }
             _bindQueueProps(node, container) {
+                const applyChannels = () => {
+                    const newCount = parseInt(document.getElementById('prop-channels').value) || 1;
+                    if (newCount !== node.numChannels) {
+                        node.setNumChannels(newCount);
+                        // Перерисовываем панель свойств, чтобы отобразить новые поля
+                        this._updatePropsPanel();
+                    } else {
+                        // Сохраняем настройки каждого канала из полей ввода
+                        for (let i = 0; i < node.channels.length; i++) {
+                            const distSelect = document.querySelector(`.ch-dist[data-ch="${i}"]`);
+                            const valInput = document.querySelector(`.ch-val[data-ch="${i}"]`);
+                            if (distSelect && valInput) {
+                                node.channels[i].distribution = distSelect.value;
+                                node.channels[i].value = parseFloat(valInput.value) || 1;
+                            }
+                        }
+                    }
+                    this.renderer.draw();
+                };
+
+                // Обработчик для изменения количества каналов
+                const channelsInput = document.getElementById('prop-channels');
+                if (channelsInput) {
+                    channelsInput.addEventListener('change', applyChannels);
+                }
+
+                // Обработчик для изменений отдельных каналов (делегирование)
+                container.addEventListener('change', (e) => {
+                    if (e.target.classList && (e.target.classList.contains('ch-dist') || e.target.classList.contains('ch-val'))) {
+                        applyChannels();
+                    }
+                });
+                container.addEventListener('input', (e) => {
+                    if (e.target.classList && e.target.classList.contains('ch-val')) {
+                        applyChannels();
+                    }
+                });
+
+                // Остальные поля (имя, дисциплина, maxq, seed)
                 const apply = () => {
                     node.name = document.getElementById('prop-name').value || 'Очередь';
                     node.discipline = document.getElementById('prop-disc').value;
-                    node.numChannels = Math.max(1, parseInt(document.getElementById('prop-channels').value) ||
-                        1);
-                    node.serviceDistribution = document.getElementById('prop-servdist').value;
-                    node.serviceConst = parseFloat(document.getElementById('prop-servconst').value) || 1;
-                    node.serviceMu = parseFloat(document.getElementById('prop-servmu').value) || 1;
                     node.maxQueueLength = parseInt(document.getElementById('prop-maxq').value) || 0;
                     node.seed = parseInt(document.getElementById('prop-seed').value) || 100;
                     node.prng.setSeed(node.seed);
                     this.renderer.draw();
                 };
-                container.querySelectorAll('input, select').forEach(el => {
+                document.querySelectorAll('#prop-name, #prop-disc, #prop-maxq, #prop-seed').forEach(el => {
                     el.addEventListener('change', apply);
                     el.addEventListener('input', apply);
-                });
-                document.getElementById('prop-servdist').addEventListener('change', () => {
-                    const dist = document.getElementById('prop-servdist').value;
-                    document.getElementById('prop-servconst-label').style.display = dist === 'constant' ?
-                        '' : 'none';
-                    document.getElementById('prop-servmu-label').style.display = dist === 'exponential' ?
-                        '' : 'none';
-                    apply();
                 });
             }
             _sinkPropsHTML(node) {
